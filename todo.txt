@@ -23,3 +23,6 @@ INTO TABLE clients
 
 жек сервак
 37.17.55.236:35100
+
+https://medium.com/@shijuvar/go-microservices-with-go-kit-introduction-43a757398183
+https://gokit.io/examples/stringsvc.html
