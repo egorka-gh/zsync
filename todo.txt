@@ -1,0 +1,25 @@
+SELECT program, card, state, state_date, surname, name, patronymic, phone_code, phone, email, gender, birthday, pet, send_promo, sync, sync2, version, deleted
+  INTO OUTFILE 'C:/tmp/result1.text'
+  FROM clients;
+
+LOAD DATA LOCAL INFILE 'D:/Buffer/clients.dat' REPLACE 
+INTO TABLE clients
+(program,
+  card,
+  state,
+  state_date,
+  surname,
+  name,
+  patronymic,
+  phone_code,
+  phone,
+  email,
+  gender,
+  birthday,
+  pet,
+  send_promo,
+  sync,
+  sync2);
+
+жек сервак
+37.17.55.236:35100
