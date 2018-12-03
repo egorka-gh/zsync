@@ -21,6 +21,16 @@ type VersionPack struct {
 	Pack   string `json:"pack"`
 }
 
+//Activity represents card activity
+type Activity struct {
+	Source    string    `json:"source"`
+	Doc       string    `json:"doc_id"`
+	Card      string    `json:"card"`
+	DocDate   time.Time `json:"doc_date"`
+	DocSum    float32   `json:"doc_sum"`
+	BonuceSum float32   `json:"bonuce_sum"`
+}
+
 // Repository describes the persistence on dto
 type Repository interface {
 	ListVersion(ctx context.Context, source string) ([]Version, error)
@@ -29,4 +39,7 @@ type Repository interface {
 	CalcLevels(ctx context.Context, balanceDate time.Time) error
 	CalcBalance(ctx context.Context, balanceDate time.Time) error
 	FixVersions(ctx context.Context, source string) error
+	//cash
+	AddActivity(ctx context.Context, activity Activity) error
+	GetLevel(ctx context.Context, card string) (int, error)
 }
