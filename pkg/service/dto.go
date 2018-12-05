@@ -1,4 +1,4 @@
-package dto
+package service
 
 import (
 	"context"
@@ -36,6 +36,7 @@ type Repository interface {
 	ListVersion(ctx context.Context, source string) ([]Version, error)
 	CreatePack(ctx context.Context, source string, table string, start int) (VersionPack, error)
 	ExecPack(ctx context.Context, pack VersionPack) error
+	DelPack(ctx context.Context, pack VersionPack) error
 	CalcLevels(ctx context.Context, balanceDate time.Time) error
 	CalcBalance(ctx context.Context, balanceDate time.Time) error
 	FixVersions(ctx context.Context, source string) error

@@ -26,3 +26,4 @@ INTO TABLE clients
 
 https://medium.com/@shijuvar/go-microservices-with-go-kit-introduction-43a757398183
 https://gokit.io/examples/stringsvc.html
+https://dev.to/plutov/microservices-with-go-kit-part-1-13dd
