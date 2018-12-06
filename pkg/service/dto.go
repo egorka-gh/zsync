@@ -7,9 +7,9 @@ import (
 
 //Version represents the version of db objet
 type Version struct {
-	Source  string `json:"source"`
-	Table   string `json:"table_name"`
-	Version int    `json:"latest_version"`
+	Source  string `json:"source" db:"source"`
+	Table   string `json:"table_name" db:"table_name"`
+	Version int    `json:"latest_version" db:"latest_version"`
 }
 
 //VersionPack represents sync pack
