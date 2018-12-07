@@ -34,7 +34,7 @@ type Activity struct {
 // Repository describes the persistence on dto
 type Repository interface {
 	ListVersion(ctx context.Context, source string) ([]Version, error)
-	CreatePack(ctx context.Context, source string, table string, start int) (VersionPack, error)
+	CreatePack(ctx context.Context, source, table, filename string, start int) (VersionPack, error)
 	ExecPack(ctx context.Context, pack VersionPack) error
 	DelPack(ctx context.Context, pack VersionPack) error
 	CalcLevels(ctx context.Context, balanceDate time.Time) error

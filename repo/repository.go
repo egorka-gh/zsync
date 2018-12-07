@@ -3,7 +3,6 @@ package repo
 import (
 	"context"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/egorka-gh/zbazar/zsync1st/dto"
@@ -23,16 +22,16 @@ func (b *basicRepository) ListVersion(ctx context.Context, source string) ([]dto
 	return list, err
 }
 
-func (b *basicRepository) CreatePack(ctx context.Context, source string, table string, start int) (dto.VersionPack, error) {
+func (b *basicRepository) CreatePack(ctx context.Context, source, table, filename string, start int) (dto.VersionPack, error) {
 	//TODO check delete pack file before sql
 	var pack = dto.VersionPack{
 		Source: source,
 		Table:  table,
 		Start:  start,
+		Pack:   filename,
 	}
 
-	var fileName = source + "_" + table + "_" + strconv.FormatInt(int64(start), 10) + ".dat"
-	var path = b.dbFolder + fileName
+	var path = b.dbFolder + filename
 	err := os.Remove(path)
 	if err != nil && !os.IsNotExist(err) {
 		return pack, err
