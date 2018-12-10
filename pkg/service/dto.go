@@ -14,11 +14,13 @@ type Version struct {
 
 //VersionPack represents sync pack
 type VersionPack struct {
-	Source string `json:"source"`
-	Table  string `json:"table_name"`
-	Start  int    `json:"start_version"`
-	End    int    `json:"latest_version"`
-	Pack   string `json:"pack"`
+	Source   string `json:"source"`
+	Table    string `json:"table_name"`
+	Start    int    `json:"start_version"`
+	End      int    `json:"latest_version"`
+	Pack     string `json:"pack,omitempty"`
+	PackSize int64  `json:"size,omitempty"`
+	PackMD5  string `json:"md5,omitempty"`
 }
 
 //Activity represents card activity
