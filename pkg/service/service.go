@@ -59,6 +59,18 @@ func (b *basicZsyncService) ListVersion(ctx context.Context, source string) (v0 
 func (b *basicZsyncService) PullPack(ctx context.Context, source string, table string, start int) (v0 VersionPack, e1 error) {
 	//pack name vs asker (source) prifix and start version sifix
 	var fileName = source + "_" + table + "_" + strconv.FormatInt(int64(start), 10) + ".dat"
+
+	//check delete pack file before sql
+	e1 = b.delPack(ctx, fileName)
+	if e1 != nil {
+		var pack = VersionPack{
+			Source: source,
+			Table:  table,
+			Start:  start,
+		}
+		return pack, e1
+	}
+
 	v0, e1 = b.db.CreatePack(ctx, b.id, table, fileName, start)
 	if e1 != nil {
 		return v0, e1
@@ -71,7 +83,7 @@ func (b *basicZsyncService) PullPack(ctx context.Context, source string, table s
 		}
 		if v0.PackSize == 0 {
 			//empty version (no changes, but version fixed), posible bug
-			_ = b.db.DelPack(ctx, v0)
+			_ = b.delPack(ctx, v0.Pack)
 			v0.End = v0.Start
 			v0.Pack = ""
 		}
@@ -81,10 +93,23 @@ func (b *basicZsyncService) PullPack(ctx context.Context, source string, table s
 }
 
 func (b *basicZsyncService) PushPack(ctx context.Context, pack VersionPack) (e0 error) {
+	//TODO wrong, download first
 	return b.db.ExecPack(ctx, pack)
 }
+
+func (b *basicZsyncService) delPack(ctx context.Context, fileName string) (e0 error) {
+	if fileName != "" {
+		var path = b.exchangeFolder + fileName
+		err := os.Remove(path)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
+}
+
 func (b *basicZsyncService) PackDone(ctx context.Context, pack VersionPack) (e0 error) {
-	return b.db.DelPack(ctx, pack)
+	return b.delPack(ctx, pack.Pack)
 }
 func (b *basicZsyncService) AddActivity(ctx context.Context, activity Activity) (e0 error) {
 	return b.db.AddActivity(ctx, activity)

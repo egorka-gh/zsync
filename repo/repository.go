@@ -5,6 +5,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/pkg/errors"
+
 	"github.com/egorka-gh/zbazar/zsync/pkg/service"
 	"github.com/jmoiron/sqlx"
 )
@@ -29,18 +31,11 @@ func (b *basicRepository) CreatePack(ctx context.Context, source, table, filenam
 		Pack:   filename,
 	}
 
-	//check delete pack file before sql
-	err := b.DelPack(ctx, pack)
-	if err != nil {
-		pack.Pack = ""
-		return pack, err
-	}
-
-	//run procwdure
+	//run procedure
 	var path = b.dbFolder + filename
 	var sql = "CALL " + table + "_getcnv(?, ?, ?)"
 	var newVersion int
-	err = b.db.GetContext(ctx, &newVersion, sql, source, start, path)
+	err := b.db.GetContext(ctx, &newVersion, sql, source, start, path)
 	if err != nil {
 		pack.Pack = ""
 		return pack, err
@@ -60,38 +55,32 @@ func (b *basicRepository) ExecPack(ctx context.Context, pack service.VersionPack
 	if pack.Pack == "" || pack.End <= pack.Start {
 		return nil
 	}
+	var path = b.dbFolder + pack.Pack
+	var sql = "CALL " + pack.Table + "_runcnv(?, ?, ?)"
+	_, err := b.db.ExecContext(ctx, sql, pack.Source, pack.End, path)
+	return err
 
-}
-
-func (b *basicRepository) DelPack(ctx context.Context, pack service.VersionPack) error {
-	if pack.Pack != "" {
-		var path = b.dbFolder + pack.Pack
-		err := os.Remove(path)
-		if err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	}
-	return nil
 }
 
 func (b *basicRepository) CalcLevels(ctx context.Context, balanceDate time.Time) error {
-
+	return errors.New("Not implemented")
 }
 
 func (b *basicRepository) CalcBalance(ctx context.Context, balanceDate time.Time) error {
-
+	return errors.New("Not implemented")
 }
 
 func (b *basicRepository) FixVersions(ctx context.Context, source string) error {
-
+	_, err := b.db.ExecContext(ctx, "CALL fix_version(?)", source)
+	return err
 }
 
 func (b *basicRepository) AddActivity(ctx context.Context, activity service.Activity) error {
-
+	return errors.New("Not implemented")
 }
 
 func (b *basicRepository) GetLevel(ctx context.Context, card string) (int, error) {
-
+	return 0, errors.New("Not implemented")
 }
 
 //New creates new Repository, expect mysql sqlx.DB

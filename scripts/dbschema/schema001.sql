@@ -101,25 +101,28 @@ CREATE TABLE client_activity (
 ENGINE = INNODB
 CHARACTER SET utf8
 COLLATE utf8_general_ci;
+
 DELIMITER $$
 
 --
 -- Создать триггер "tg_client_activity_bi"
 --
-CREATE 
+CREATE
 TRIGGER tg_client_activity_bi
-	AFTER INSERT
-	ON client_activity
-	FOR EACH ROW
+AFTER INSERT
+ON client_activity
+FOR EACH ROW
 BEGIN
-  INSERT INTO client_balance (card, balance_date)
-    VALUES (NEW.card, LAST_DAY(NEW.doc_date))
-  ON DUPLICATE KEY UPDATE version = 0;
+  INSERT INTO client_balance (card, balance_date, doc_sum, bonuce_sum)
+    VALUES (NEW.card, LAST_DAY(NEW.doc_date), NEW.doc_sum, NEW.bonuce_sum)
+  ON DUPLICATE KEY UPDATE
+  version = 0,
+  doc_sum = doc_sum + NEW.doc_sum,
+  bonuce_sum = bonuce_sum + NEW.bonuce_sum;
 END
 $$
 
 DELIMITER ;
-
 CREATE TABLE pshdata.client_balance (
   card varchar(50) NOT NULL,
   balance_date date NOT NULL COMMENT 'the last day of the corresponding month',
