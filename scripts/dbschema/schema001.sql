@@ -169,3 +169,42 @@ INSERT INTO cnv_version(source, table_name, latest_version, syncorder) VALUES('0
 INSERT INTO cnv_version(source, table_name, latest_version, syncorder) VALUES('00', 'program_cards', 1, 0);
 INSERT INTO cnv_version(source, table_name, latest_version, syncorder) VALUES('00', 'clients', 2, 0);
 INSERT INTO cnv_version(source, table_name, latest_version, syncorder) VALUES('00', 'client_balance', 3, 0);
+
+DELIMITER $$
+
+CREATE 
+TRIGGER programs_tgu
+	BEFORE UPDATE
+	ON programs
+	FOR EACH ROW
+BEGIN
+  IF NOT (OLD.external <=> NEW.external) 
+    OR NOT (OLD.active <=> NEW.active) 
+    OR NOT (OLD.deleted <=> NEW.deleted) THEN
+    SET NEW.version=0;
+  END IF;
+END
+$$
+
+DELIMITER ;
+
+DELIMITER $$
+
+CREATE 
+TRIGGER program_cards_tgu
+	BEFORE UPDATE
+	ON program_cards
+	FOR EACH ROW
+BEGIN
+  IF NOT (OLD.program <=> NEW.program) 
+    OR NOT (OLD.card_start <=> NEW.card_start) 
+    OR NOT (OLD.card_end <=> NEW.card_end) 
+    OR NOT (OLD.active <=> NEW.active) 
+    OR NOT (OLD.card_len <=> NEW.card_len) 
+    OR NOT (OLD.deleted <=> NEW.deleted) THEN
+    SET NEW.version=0;
+  END IF;
+END
+$$
+
+DELIMITER ;

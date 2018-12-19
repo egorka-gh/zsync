@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	_ "github.com/go-sql-driver/mysql"
@@ -10,14 +11,14 @@ import (
 	"github.com/egorka-gh/zbazar/zsync/pkg/service"
 )
 
-func newDb(cnn, folder string) (service.Repository, error) {
+func newDb(cnn, folder string) (service.Repository, *sqlx.DB, error) {
 	//"root:3411@tcp(127.0.0.1:3306)/pshdata"
 	var db *sqlx.DB
 	db, err := sqlx.Connect("mysql", cnn)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return New(db, folder), nil
+	return New(db, folder), db, nil
 }
 
 /*
@@ -29,28 +30,127 @@ func TestFixVersion(t *testing.T){
 }
 */
 
-func TestGetVersion(t *testing.T) {
-	var mdb service.Repository
-	mdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch")
+func TestGetFixVersionMaster(t *testing.T) {
+	//var mdb service.Repository
+	mrep, mdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	ver, err := mdb.ListVersion(context.Background(), "00")
+	ver0, err := mrep.ListVersion(context.Background(), "00")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(ver0)
+
+	//change clients
+	var sql = "UPDATE clients c SET c.deleted = MOD(c.deleted + 1, 2) WHERE c.version != 0 LIMIT 33"
+	_, err = mdb.Exec(sql)
+	if err != nil {
+		t.Error(err)
+	}
+
+	//change programs
+	sql = "UPDATE programs p SET p.version=0 LIMIT 1"
+	_, err = mdb.Exec(sql)
+	if err != nil {
+		t.Error(err)
+	}
+
+	//change program_cards
+	sql = "UPDATE program_cards SET version=0 LIMIT 1"
+	_, err = mdb.Exec(sql)
+	if err != nil {
+		t.Error(err)
+	}
+
+	//change program_cards
+	sql = "UPDATE client_balance SET version=0 LIMIT 1"
+	_, err = mdb.Exec(sql)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = mrep.FixVersions(context.Background(), "00")
+	if err != nil {
+		t.Error(err)
+	}
+
+	ver, err := mrep.ListVersion(context.Background(), "00")
 	if err != nil {
 		t.Error(err)
 	}
 	t.Log(ver)
 
-	err = mdb.FixVersions(context.Background(), "00")
+	//check if version updated
+	for _, v0 := range ver0 {
+		for _, v := range ver {
+			if v0.Table == v.Table && (v0.Version+1) != v.Version {
+				t.Error(v0.Table, " Expected version ", (v0.Version + 1), ", got ", v.Version)
+			}
+		}
+	}
+
+}
+
+func TestSyncSlave(t *testing.T) {
+	mrep, _, err := newDb("root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	srep, _, err := newDb("root:3411@tcp(127.0.0.1:3306)/zslave", "D:\\Buffer\\zexch")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	//get table versions in slave
+	ver0, err := srep.ListVersion(context.Background(), "00")
 	if err != nil {
 		t.Error(err)
 	}
+	t.Log(ver0)
 
-	ver, err = mdb.ListVersion(context.Background(), "00")
+	//generate sync packs in master
+	packList := make([]service.VersionPack, 0, len(ver0))
+	for _, v0 := range ver0 {
+		var fileName = "00_" + v0.Table + "_" + strconv.FormatInt(int64(v0.Version), 10) + ".dat"
+		p, err := mrep.CreatePack(context.Background(), "00", v0.Table, fileName, v0.Version)
+		if err != nil {
+			t.Error(err)
+		}
+		packList = append(packList, p)
+	}
+	t.Log(packList)
+
+	//apply packs in slave
+	for _, p := range packList {
+		if p.Pack == "" {
+			t.Log("Version not changed or error in CreatePack", p)
+		}
+		err = srep.ExecPack(context.Background(), p)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	//check versions vs master
+	ver0, err = srep.ListVersion(context.Background(), "00")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(ver0)
+
+	ver, err := mrep.ListVersion(context.Background(), "00")
 	if err != nil {
 		t.Error(err)
 	}
 	t.Log(ver)
+	for _, v0 := range ver0 {
+		for _, v := range ver {
+			if v0.Table == v.Table && v0.Version != v.Version {
+				t.Error(v0.Table, "Version not changed. Slave version ", v0.Version, ". Master version ", v.Version)
+			}
+		}
+	}
 
 }
