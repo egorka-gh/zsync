@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
@@ -275,6 +276,54 @@ func TestSyncMaster(t *testing.T) {
 		if !found {
 			t.Error("Не найдена таблица ", v0.Table)
 		}
+	}
+
+}
+
+func TestCalcs(t *testing.T) {
+	mrep, mdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mdb.Close()
+
+	//get first day of month
+	now := time.Now()
+	currentYear, currentMonth, _ := now.Date()
+	currentLocation := now.Location()
+	firstOfMonth := time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, currentLocation)
+
+	/*
+		fmt.Println(firstOfMonth)
+		var sql = "select timediff(now(),convert_tz(now(),@@session.time_zone,'+00:00'));"
+		var str string
+		mdb.Get(&str, sql)
+		fmt.Println(str)
+
+		err = mdb.Get(&str, "CALL recalc_level(?)", firstOfMonth.Format("2006-01-02"))
+		if err != nil {
+			t.Error(err)
+		}
+		fmt.Println(str)
+	*/
+
+	//clear current
+	var sql = "UPDATE client_balance SET bonuce_sum = 0, level = 0 WHERE balance_date = LAST_DAY(CURDATE())"
+	_, err = mdb.Exec(sql)
+	if err != nil {
+		t.Error(err)
+	}
+
+	//calc balance
+	err = mrep.CalcBalance(context.Background(), firstOfMonth)
+	if err != nil {
+		t.Error(err)
+	}
+
+	//calc levels
+	err = mrep.CalcLevels(context.Background(), firstOfMonth)
+	if err != nil {
+		t.Error(err)
 	}
 
 }

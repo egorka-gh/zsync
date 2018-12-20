@@ -102,11 +102,12 @@ func (b *basicRepository) ExecPack(ctx context.Context, pack service.VersionPack
 }
 
 func (b *basicRepository) CalcLevels(ctx context.Context, balanceDate time.Time) error {
-	return errors.New("Not implemented")
+	_, err := b.db.ExecContext(ctx, "CALL recalc_level(?)", balanceDate.Format("2006-01-02"))
+	return err
 }
 
 func (b *basicRepository) CalcBalance(ctx context.Context, fromDate time.Time) error {
-	_, err := b.db.ExecContext(ctx, "CALL recalc_balance(?)", fromDate)
+	_, err := b.db.ExecContext(ctx, "CALL recalc_balance(?)", fromDate.Format("2006-01-02"))
 	return err
 }
 
