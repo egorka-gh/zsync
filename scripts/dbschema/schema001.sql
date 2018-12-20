@@ -208,3 +208,22 @@ END
 $$
 
 DELIMITER ;
+
+DELIMITER $$
+
+CREATE 
+TRIGGER tg_client_balance_bu
+	BEFORE UPDATE
+	ON client_balance
+	FOR EACH ROW
+BEGIN
+  IF NOT (OLD.doc_sum <=> NEW.doc_sum) 
+    OR NOT (OLD.bonuce_sum <=> NEW.bonuce_sum) 
+    OR NOT (OLD.level <=> NEW.level) 
+    OR NOT (OLD.deleted <=> NEW.deleted) THEN
+    SET NEW.version=0;
+  END IF;
+END
+$$
+
+DELIMITER ;

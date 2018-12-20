@@ -19,8 +19,14 @@ type basicRepository struct {
 
 func (b *basicRepository) ListVersion(ctx context.Context, source string) ([]service.Version, error) {
 	var list []service.Version
-	var ssql = "SELECT source, table_name, latest_version FROM cnv_version WHERE source = ? ORDER BY syncorder"
-	err := b.db.SelectContext(ctx, &list, ssql, source)
+
+	//var ssql = "SELECT source, table_name, latest_version FROM cnv_version WHERE source = ? ORDER BY syncorder"
+	var sb strings.Builder
+	sb.WriteString("SELECT ? source, table_name, MAX(latest_version) latest_version FROM cnv_version")
+	sb.WriteString(" WHERE source IN (?, IF(? = '00', '000', ''))")
+	sb.WriteString(" GROUP BY table_name, syncorder ORDER BY syncorder")
+	var ssql = sb.String()
+	err := b.db.SelectContext(ctx, &list, ssql, source, source, source)
 	return list, err
 }
 
@@ -99,8 +105,9 @@ func (b *basicRepository) CalcLevels(ctx context.Context, balanceDate time.Time)
 	return errors.New("Not implemented")
 }
 
-func (b *basicRepository) CalcBalance(ctx context.Context, balanceDate time.Time) error {
-	return errors.New("Not implemented")
+func (b *basicRepository) CalcBalance(ctx context.Context, fromDate time.Time) error {
+	_, err := b.db.ExecContext(ctx, "CALL recalc_balance(?)", fromDate)
+	return err
 }
 
 func (b *basicRepository) FixVersions(ctx context.Context, source string) error {
@@ -129,10 +136,6 @@ func (b *basicRepository) delPack(ctx context.Context, fileName string) (e0 erro
 
 //New creates new Repository, expect mysql sqlx.DB
 func New(rep *sqlx.DB, exchangeFolder string) service.Repository {
-	/*
-	   db, err = sqlx.Connect("mysql", viper.GetString("ConnectionString"))
-	   	if err != nil {..
-	*/
 	if !os.IsPathSeparator(exchangeFolder[len(exchangeFolder)-1]) {
 		exchangeFolder = exchangeFolder + string(os.PathSeparator)
 	}

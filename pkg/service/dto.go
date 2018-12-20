@@ -40,7 +40,7 @@ type Repository interface {
 	ExecPack(ctx context.Context, pack VersionPack) error
 	//DelPack(ctx context.Context, pack VersionPack) error
 	CalcLevels(ctx context.Context, balanceDate time.Time) error
-	CalcBalance(ctx context.Context, balanceDate time.Time) error
+	CalcBalance(ctx context.Context, fromDate time.Time) error
 	FixVersions(ctx context.Context, source string) error
 	//cash
 	AddActivity(ctx context.Context, activity Activity) error
