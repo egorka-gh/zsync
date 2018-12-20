@@ -117,7 +117,9 @@ func (b *basicRepository) FixVersions(ctx context.Context, source string) error 
 }
 
 func (b *basicRepository) AddActivity(ctx context.Context, activity service.Activity) error {
-	return errors.New("Not implemented")
+	var sql = "INSERT INTO client_activity (source, doc_id, card, doc_date, doc_sum, bonuce_sum) VALUES (?, ?, ?, ?, ?, ?)"
+	_, err := b.db.ExecContext(ctx, sql, activity.Source, activity.Doc, activity.Card, activity.DocDate, activity.DocSum, activity.BonuceSum)
+	return err
 }
 
 func (b *basicRepository) GetLevel(ctx context.Context, card string) (int, error) {
