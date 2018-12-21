@@ -326,4 +326,29 @@ func TestCalcs(t *testing.T) {
 		t.Error(err)
 	}
 
+	//check getlevel
+	sql = "SELECT c.card, cb.level FROM programs p" +
+		" INNER JOIN clients c ON p.id = c.program" +
+		" INNER JOIN client_balance cb ON c.card = cb.card AND cb.balance_date = ADDDATE(CURDATE(), -DAY(CURDATE()))" +
+		" WHERE p.external = 0 AND c.state >= 5 AND cb.level > 0" +
+		" LIMIT 1"
+	data := struct {
+		Card  string
+		Level int
+	}{
+		"",
+		0,
+	}
+	err = mdb.Get(&data, sql)
+	if err != nil {
+		t.Error(err)
+	}
+
+	lvl, err := mrep.GetLevel(context.Background(), data.Card)
+	if err != nil {
+		t.Error(err)
+	}
+	if lvl != data.Level {
+		t.Error("Wrong card level, expected ", data.Level, ", got ", lvl, ". card ", data.Card)
+	}
 }

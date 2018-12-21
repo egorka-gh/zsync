@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/egorka-gh/zbazar/zsync/pkg/service"
 	"github.com/jmoiron/sqlx"
 )
@@ -123,7 +121,13 @@ func (b *basicRepository) AddActivity(ctx context.Context, activity service.Acti
 }
 
 func (b *basicRepository) GetLevel(ctx context.Context, card string) (int, error) {
-	return 0, errors.New("Not implemented")
+	var sql = "CALL get_level(?)"
+	var level int
+	err := b.db.GetContext(ctx, &level, sql, card)
+	if err != nil {
+		return 0, err
+	}
+	return level, nil
 }
 
 func (b *basicRepository) delPack(ctx context.Context, fileName string) (e0 error) {
