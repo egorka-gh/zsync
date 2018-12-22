@@ -1,3 +1,7 @@
+use lumberjack to rotate logs
+https://gopkg.in/natefinch/lumberjack.v2
+
+
 SELECT program, card, state, state_date, surname, name, patronymic, phone_code, phone, email, gender, birthday, pet, send_promo, sync, sync2, version, deleted
   INTO OUTFILE 'C:/tmp/result1.text'
   FROM clients;
