@@ -66,7 +66,7 @@ func TestFixVersionMaster(t *testing.T) {
 		t.Error(err)
 	}
 
-	//change program_cards
+	//change client_balance
 	sql = "UPDATE client_balance SET version=0 LIMIT 1"
 	_, err = mdb.Exec(sql)
 	if err != nil {
@@ -187,6 +187,7 @@ func TestFixVersionSlave(t *testing.T) {
 		t.Error(err)
 	}
 
+	//client
 	err = mrep.FixVersions(context.Background(), "zs")
 	if err != nil {
 		t.Error(err)

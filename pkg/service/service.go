@@ -93,7 +93,7 @@ func (b *basicZsyncService) PullPack(ctx context.Context, source string, table s
 }
 
 func (b *basicZsyncService) PushPack(ctx context.Context, pack VersionPack) (e0 error) {
-	//TODO wrong, download first
+	//TODO wrong - just a signal to client, than client has to download check and exec pack
 	return b.db.ExecPack(ctx, pack)
 }
 
@@ -112,6 +112,7 @@ func (b *basicZsyncService) PackDone(ctx context.Context, pack VersionPack) (e0 
 	return b.delPack(ctx, pack.Pack)
 }
 func (b *basicZsyncService) AddActivity(ctx context.Context, activity Activity) (e0 error) {
+	activity.Source = b.id
 	return b.db.AddActivity(ctx, activity)
 }
 func (b *basicZsyncService) GetLevel(ctx context.Context, card string) (i0 int, e1 error) {
@@ -121,6 +122,9 @@ func (b *basicZsyncService) GetLevel(ctx context.Context, card string) (i0 int, 
 
 // NewBasicZsyncService returns a naive, stateless implementation of ZsyncService.
 func NewBasicZsyncService(rep Repository, id, folder string) ZsyncService {
+	if !os.IsPathSeparator(folder[len(folder)-1]) {
+		folder = folder + string(os.PathSeparator)
+	}
 	return &basicZsyncService{
 		db:             rep,
 		id:             id,
