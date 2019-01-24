@@ -53,3 +53,13 @@ func loadActivity(db *sqlx.DB, source, docID string) (service.Activity, error) {
 	err := db.Get(&a, sql, source, docID)
 	return a, err
 }
+
+func getCardLevel(db *sqlx.DB, data interface{}) error {
+	sql := "SELECT c.card, cb.level FROM programs p" +
+		" INNER JOIN clients c ON p.id = c.program" +
+		" INNER JOIN client_balance cb ON c.card = cb.card AND cb.balance_date = ADDDATE(CURDATE(), -DAY(CURDATE()))" +
+		" WHERE p.external = 0 AND c.state >= 5 AND cb.level > 0" +
+		" LIMIT 1"
+	err := db.Get(data, sql)
+	return err
+}

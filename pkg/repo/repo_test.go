@@ -291,6 +291,11 @@ func TestCalcs(t *testing.T) {
 	//get first day of month
 	now := time.Now()
 	currentYear, currentMonth, _ := now.Date()
+	currentMonth = currentMonth - 1
+	if currentMonth < 1 {
+		currentYear = currentYear - 1
+		currentMonth = 12
+	}
 	currentLocation := now.Location()
 	firstOfMonth := time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, currentLocation)
 

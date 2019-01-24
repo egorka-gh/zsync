@@ -241,4 +241,44 @@ func TestAddActivity(t *testing.T) {
 	}
 }
 
-//TODO TestGetLevel
+func TestGetLevel(t *testing.T) {
+	var exchFolder = "D:\\Buffer\\zexch"
+	initLoger(true)
+
+	var mrep service.Repository
+	mrep, mdb, err := NewDb("root:3411@tcp(127.0.0.1:3306)/pshdata", exchFolder)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mdb.Close()
+
+	var mw = []service.Middleware{}
+	mw = append(mw, service.LoggingMiddleware(logger))
+	svc := service.New(mw, mrep, "00", exchFolder)
+
+	//level data
+	data := struct {
+		Card  string
+		Level int
+	}{
+		"",
+		0,
+	}
+
+	err = getCardLevel(mdb, &data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(data)
+
+	l, err := svc.GetLevel(context.Background(), data.Card)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(data)
+
+	if l != data.Level || l == 0 {
+		t.Error("Card Level mismatch. Card ", data.Card, ",bd level: ", data.Level, ",got ", l)
+	}
+
+}
