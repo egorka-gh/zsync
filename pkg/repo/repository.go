@@ -15,6 +15,15 @@ type basicRepository struct {
 	dbFolder string
 }
 
+//ListSource gets source list exclude passed source (as a rule exclude self)
+func (b *basicRepository) ListSource(ctx context.Context, source string) ([]service.Source, error) {
+	var list []service.Source
+
+	var ssql = "SELECT cs.id, cs.url FROM cnv_source cs WHERE cs.id != ?"
+	err := b.db.SelectContext(ctx, &list, ssql, source)
+	return list, err
+}
+
 func (b *basicRepository) ListVersion(ctx context.Context, source string) ([]service.Version, error) {
 	var list []service.Version
 

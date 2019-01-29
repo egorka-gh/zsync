@@ -358,3 +358,29 @@ func TestCalcs(t *testing.T) {
 		t.Error("Wrong card level, expected ", data.Level, ", got ", lvl, ". card ", data.Card)
 	}
 }
+
+func TestListSource(t *testing.T) {
+	mrep, mdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mdb.Close()
+
+	//count using direct sql
+	var cnt int
+	var sql = "SELECT count(*) res FROM cnv_source cs WHERE cs.id != ?"
+	err = mdb.Get(&cnt, sql, "00")
+	if err != nil {
+		t.Error(err)
+	}
+
+	lst, err := mrep.ListSource(context.Background(), "00")
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(lst)
+
+	if len(lst) != cnt {
+		t.Error("Wrong source count, expected ", cnt, ", got ", len(lst))
+	}
+}

@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+//Source represents sync database
+type Source struct {
+	ID  string `json:"id" db:"id"`
+	URL string `json:"url" db:"url"`
+}
+
 //Version represents the version of db objet
 type Version struct {
 	Source  string `json:"source" db:"source"`
@@ -35,6 +41,7 @@ type Activity struct {
 
 // Repository describes the persistence on dto
 type Repository interface {
+	ListSource(ctx context.Context, source string) ([]Source, error)
 	ListVersion(ctx context.Context, source string) ([]Version, error)
 	CreatePack(ctx context.Context, source, table, filename string, start int) (VersionPack, error)
 	ExecPack(ctx context.Context, pack VersionPack) error
