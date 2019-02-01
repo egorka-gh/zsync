@@ -150,6 +150,10 @@ func (b *basicRepository) delPack(ctx context.Context, fileName string) (e0 erro
 	return nil
 }
 
+func (b *basicRepository) ExchangeFolder() string {
+	return b.dbFolder
+}
+
 //New creates new Repository, expect mysql sqlx.DB
 func New(rep *sqlx.DB, exchangeFolder string) service.Repository {
 	if !os.IsPathSeparator(exchangeFolder[len(exchangeFolder)-1]) {
