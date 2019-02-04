@@ -4,13 +4,10 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"errors"
-	"sync"
 
 	"github.com/cavaliercoder/grab"
 	"github.com/go-kit/kit/log"
 
-	"github.com/egorka-gh/zbazar/zsync/client/http"
 	"github.com/egorka-gh/zbazar/zsync/pkg/service"
 )
 
@@ -23,8 +20,8 @@ type Client struct {
 	logger    log.Logger
 }
 
-//New creates client
-func New(rep service.Repository, id, packURL string, logger log.Logger) *Client {
+//NewMaster creates client
+func NewMaster(rep service.Repository, id, packURL string, logger log.Logger) *Client {
 	return &Client{
 		db:      rep,
 		id:      id,
@@ -33,117 +30,31 @@ func New(rep service.Repository, id, packURL string, logger log.Logger) *Client 
 	}
 }
 
+//NewSlave creates client
+func NewSlave(rep service.Repository, id, masterURL, packURL string, logger log.Logger) *Client {
+	return &Client{
+		db:        rep,
+		id:        id,
+		packURL:   packURL,
+		logger:    logger,
+		masterURL: masterURL,
+	}
+}
+
 //internal exchange struct
 type pack struct {
 	Pack service.VersionPack
 	URL  string
 	Err  error
+	Svc  service.ZsyncService
 }
 
 //Sync perfoms synchronization
-//Slave version
 func (c *Client) Sync(ctx context.Context) (e1 error) {
-	defer func() {
-		c.logger.Log("thread", "client", "method", "Sync", "e1", e1)
-	}()
-	c.logger.Log("thread", "client", "method", "Sync", "operation", "start", "source", "00", "url", c.masterURL)
-
-	if c.masterURL == "" {
-		e1 = errors.New("Empty master URL")
-		return
+	if c.id == "00" {
+		return c.syncMaster(ctx)
 	}
-
-	svc, e1 := http.New(c.masterURL, nil)
-	if e1 != nil {
-		return
-	}
-
-	//TODO get versioned tables count from db
-	const tablesNum int = 10
-	wg := sync.WaitGroup{}
-
-	//pull version packs
-	pulled := make(chan pack, tablesNum)
-	//pullwg := sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer func() {
-			close(pulled)
-			wg.Done()
-		}()
-		_ = c.pullSyncPacks(ctx, svc, "00", c.masterURL, pulled)
-	}()
-
-	//download packs
-	loaded := make(chan pack, tablesNum)
-
-	client := grab.NewClient()
-	load := func(in <-chan pack, out chan<- pack) {
-		// TODO: enable cancelling of batch jobs
-		for p := range in {
-			//create request
-			req, err := grab.NewRequest(c.db.ExchangeFolder(), c.masterURL+c.packURL+"/"+p.Pack.Pack)
-			if err != nil {
-				p.Err = err
-			} else {
-				req.Size = p.Pack.PackSize
-				b, err := hex.DecodeString(p.Pack.PackMD5)
-				if err != nil {
-					p.Err = err
-				} else {
-					req.SetChecksum(md5.New(), b, true)
-					//cancelabel
-					req = req.WithContext(ctx)
-					//load
-					resp := client.Do(req)
-					//respch <- resp
-					//waite complite
-					//<-resp.Done
-					p.Err = resp.Err()
-					out <- p
-				}
-			}
-		}
-	}
-	// start 5 loaders
-	wgl := sync.WaitGroup{}
-	for i := 0; i < 5; i++ {
-		wgl.Add(1)
-		go func() {
-			load(pulled, loaded)
-			wgl.Done()
-		}()
-	}
-
-	//waite all downloads complete & close loaded chan
-	go func() {
-		wgl.Wait()
-		close(loaded)
-	}()
-
-	//exec in db
-	wg.Add(1)
-	go func() {
-		for p := range loaded {
-			if p.Err != nil {
-				c.logger.Log("thread", "client", "method", "Sync", "operation", "load", "url", c.masterURL+c.packURL+"/"+p.Pack.Pack, "e1", p.Err)
-			} else {
-				p.Err = c.db.ExecPack(ctx, p.Pack)
-				if p.Err != nil {
-					c.logger.Log("thread", "client", "method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
-				}
-			}
-			//notify server can remove pack
-			//don't care rusult
-			go func(p pack) {
-				_ = svc.PackDone(ctx, p.Pack)
-			}(p)
-		}
-		wg.Done()
-	}()
-
-	wg.Wait()
-	return
+	return c.syncSlave(ctx)
 }
 
 //PullSyncPacks checks remote versions and download version pakcs
@@ -174,7 +85,7 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 				//pull pack from remote
 				go func(v service.Version) {
 					vp, err := svc.PullPack(ctx, v.Source, v.Table, v.Version)
-					ch <- pack{Pack: vp, URL: url, Err: err}
+					ch <- pack{Pack: vp, URL: url, Err: err, Svc: svc}
 				}(v1)
 				select {
 				case <-ctx.Done():
@@ -199,6 +110,47 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 		}
 	}
 	return
+}
+
+//loadSyncPack pack download worker
+func (c *Client) loadSyncPack(ctx context.Context, client *grab.Client, in <-chan pack, out chan<- pack) {
+	select {
+	case <-ctx.Done():
+		//context canceled
+		return
+	case p, ok := <-in:
+		if !ok {
+			//chan closed
+			return
+		}
+		//create request
+		req, err := grab.NewRequest(c.db.ExchangeFolder(), p.URL+c.packURL+"/"+p.Pack.Pack)
+		if err != nil {
+			p.Err = err
+		} else {
+			req.Size = p.Pack.PackSize
+			b, err := hex.DecodeString(p.Pack.PackMD5)
+			if err != nil {
+				p.Err = err
+			} else {
+				req.SetChecksum(md5.New(), b, true)
+				//cancelabel
+				req = req.WithContext(ctx)
+				//load
+				resp := client.Do(req)
+				//respch <- resp
+				//waite complite
+				//<-resp.Done
+				p.Err = resp.Err()
+				//check if context canceled
+				if ctx.Err() != nil && (ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded) {
+					return
+				}
+			}
+		}
+		//sent result
+		out <- p
+	}
 }
 
 //FixVersions updates versions in db
