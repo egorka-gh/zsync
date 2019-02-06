@@ -19,7 +19,7 @@ func newDb(cnn, folder string) (service.Repository, *sqlx.DB, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return New(db, folder), db, nil
+	return NewTest(db, folder), db, nil
 }
 
 /*

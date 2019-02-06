@@ -57,6 +57,7 @@ func (c *Client) Sync(ctx context.Context) (e1 error) {
 	return c.syncSlave(ctx)
 }
 
+//TODO recheck source usage
 //PullSyncPacks checks remote versions and download version pakcs
 func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, source string, url string, out chan<- pack) (e1 error) {
 	defer func() {

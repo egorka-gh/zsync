@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/egorka-gh/zbazar/zsync/pkg/service"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -154,8 +155,12 @@ func (b *basicRepository) ExchangeFolder() string {
 	return b.dbFolder
 }
 
-//New creates new Repository, expect mysql sqlx.DB
-func New(rep *sqlx.DB, exchangeFolder string) service.Repository {
+func (b *basicRepository) Close() {
+	b.db.Close()
+}
+
+//NewTest creates new Repository, expect mysql sqlx.DB
+func NewTest(rep *sqlx.DB, exchangeFolder string) service.Repository {
 	if !os.IsPathSeparator(exchangeFolder[len(exchangeFolder)-1]) {
 		exchangeFolder = exchangeFolder + string(os.PathSeparator)
 	}
@@ -164,4 +169,14 @@ func New(rep *sqlx.DB, exchangeFolder string) service.Repository {
 		db:       rep,
 		dbFolder: exchangeFolder,
 	}
+}
+
+//New creates new Repository, expect mysql sqlx.DB
+func New(connection, exchangeFolder string) (service.Repository, error) {
+	var db *sqlx.DB
+	db, err := sqlx.Connect("mysql", connection)
+	if err != nil {
+		return nil, err
+	}
+	return NewTest(db, exchangeFolder), nil
 }

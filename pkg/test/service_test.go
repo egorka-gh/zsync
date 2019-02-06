@@ -25,7 +25,7 @@ func NewDb(cnn, folder string) (service.Repository, *sqlx.DB, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	return repo.New(db, folder), db, nil
+	return repo.NewTest(db, folder), db, nil
 }
 
 func initLoger(toFile bool) {

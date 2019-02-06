@@ -53,4 +53,5 @@ type Repository interface {
 	AddActivity(ctx context.Context, activity Activity) error
 	GetLevel(ctx context.Context, card string) (int, error)
 	ExchangeFolder() string
+	Close()
 }
