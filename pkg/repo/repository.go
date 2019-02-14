@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/egorka-gh/zbazar/zsync/pkg/service"
-	_ "github.com/go-sql-driver/mysql"
+	//_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -160,23 +160,38 @@ func (b *basicRepository) Close() {
 }
 
 //NewTest creates new Repository, expect mysql sqlx.DB
-func NewTest(rep *sqlx.DB, exchangeFolder string) service.Repository {
+func NewTest(connection, exchangeFolder string) (service.Repository, *sqlx.DB, error) {
 	if !os.IsPathSeparator(exchangeFolder[len(exchangeFolder)-1]) {
 		exchangeFolder = exchangeFolder + string(os.PathSeparator)
 	}
-
-	return &basicRepository{
-		db:       rep,
-		dbFolder: exchangeFolder,
-	}
-}
-
-//New creates new Repository, expect mysql sqlx.DB
-func New(connection, exchangeFolder string) (service.Repository, error) {
 	var db *sqlx.DB
 	db, err := sqlx.Connect("mysql", connection)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return NewTest(db, exchangeFolder), nil
+
+	return &basicRepository{
+		db:       db,
+		dbFolder: exchangeFolder,
+	}, db, nil
+}
+
+//New creates new Repository
+func New(connection, exchangeFolder string) (service.Repository, error) {
+	/*
+		if !os.IsPathSeparator(exchangeFolder[len(exchangeFolder)-1]) {
+			exchangeFolder = exchangeFolder + string(os.PathSeparator)
+		}
+		var db *sqlx.DB
+		db, err := sqlx.Connect("mysql", connection)
+		if err != nil {
+			return nil, err
+		}
+		return &basicRepository{
+			db:       db,
+			dbFolder: exchangeFolder,
+		}, nil
+	*/
+	rep, _, err := NewTest(connection, exchangeFolder)
+	return rep, err
 }

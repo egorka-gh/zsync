@@ -47,7 +47,8 @@ func updateSlave(db *sqlx.DB) error {
 	return nil
 }
 
-func loadActivity(db *sqlx.DB, source, docID string) (service.Activity, error) {
+//LoadActivity loads single Activity from db
+func LoadActivity(db *sqlx.DB, source, docID string) (service.Activity, error) {
 	var a service.Activity
 	var sql = "SELECT source, doc_id, card, DATE_FORMAT(doc_date,'%Y-%m-%d %H:%i:%s') doc_date, doc_sum, bonuce_sum FROM client_activity WHERE source=? AND  doc_id=?"
 	err := db.Get(&a, sql, source, docID)

@@ -19,13 +19,15 @@ var logger log.Logger
 
 //NewDb creates new repro
 func NewDb(cnn, folder string) (service.Repository, *sqlx.DB, error) {
-	//"root:3411@tcp(127.0.0.1:3306)/pshdata"
-	var db *sqlx.DB
-	db, err := sqlx.Connect("mysql", cnn)
-	if err != nil {
-		return nil, nil, err
-	}
-	return repo.NewTest(db, folder), db, nil
+	/*
+		//"root:3411@tcp(127.0.0.1:3306)/pshdata"
+		var db *sqlx.DB
+		db, err := sqlx.Connect("mysql", cnn)
+		if err != nil {
+			return nil, nil, err
+		}
+	*/
+	return repo.NewTest(cnn, folder)
 }
 
 func initLoger(toFile bool) {
@@ -231,7 +233,7 @@ func TestAddActivity(t *testing.T) {
 	}
 	t.Log(a)
 
-	a2, err := loadActivity(mdb, "zs", a.Doc)
+	a2, err := LoadActivity(mdb, "zs", a.Doc)
 	if err != nil {
 		t.Fatal(err)
 	}

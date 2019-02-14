@@ -13,13 +13,15 @@ import (
 )
 
 func newDb(cnn, folder string) (service.Repository, *sqlx.DB, error) {
-	//"root:3411@tcp(127.0.0.1:3306)/pshdata"
-	var db *sqlx.DB
-	db, err := sqlx.Connect("mysql", cnn)
-	if err != nil {
-		return nil, nil, err
-	}
-	return NewTest(db, folder), db, nil
+	/*
+		//"root:3411@tcp(127.0.0.1:3306)/pshdata"
+		var db *sqlx.DB
+		db, err := sqlx.Connect("mysql", cnn)
+		if err != nil {
+			return nil, nil, err
+		}
+	*/
+	return NewTest(cnn, folder)
 }
 
 /*

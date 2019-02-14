@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"io"
 	"os"
 	"strconv"
@@ -112,6 +113,9 @@ func (b *basicZsyncService) PackDone(ctx context.Context, pack VersionPack) (e0 
 	return b.delPack(ctx, pack.Pack)
 }
 func (b *basicZsyncService) AddActivity(ctx context.Context, activity Activity) (e0 error) {
+	if activity.Doc == "" || activity.DocDate == "" || activity.Card == "" {
+		return errors.New("Wrong or empty activity")
+	}
 	activity.Source = b.id
 	return b.db.AddActivity(ctx, activity)
 }
