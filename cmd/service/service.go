@@ -153,6 +153,7 @@ func initHttpHandler(endpoints endpoint.Endpoints, g *group.Group) {
 	if ok {
 		logger.Log("transport", "HTTP", "serve", *exchangeFolder, "addr", *httpAddr+http.PackPattern)
 		fs := http1.FileServer(http1.Dir(*exchangeFolder))
+		fs = http.LoggingStatusHandler(fs, logger)
 		m.Handle(http.PackPattern, http1.StripPrefix(http.PackPattern, fs))
 	} else {
 		logger.Log("transport", "HTTP", "during", "Handle "+http.PackPattern, "err", "Can't get ServeMux")

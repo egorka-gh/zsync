@@ -41,7 +41,7 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 			close(pulled)
 			wg.Done()
 		}()
-		_ = c.pullSyncPacks(ctx, svc, c.id, c.masterURL, pulled)
+		_ = c.pullSyncPacks(ctx, svc, "00", c.masterURL, pulled)
 	}()
 
 	//download packs

@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	http2 "net/http"
@@ -56,26 +57,23 @@ func defaultHttPOptions(logger log.Logger) map[string][]http.ServerOption {
 	return options
 }
 
-func startMasterService(done <-chan interface{}) error {
-	const exchFolder string = "D:\\Buffer\\zexch\\00"
-	logger := initLoger("D:\\Buffer\\zexch\\00\\log\\00.log")
-	rep, err := repo.New("root:3411@tcp(127.0.0.1:3306)/pshdata", exchFolder)
+func startClient(id, cnn, folder, log, masterURL string) (*Client, service.Repository, *sqlx.DB, error) {
+	logger := initLoger(log)
+	rep, db, err := repo.NewTest(cnn, folder)
 	if err != nil {
-		return err
+		return nil, nil, nil, err
 	}
-	//???
-	defer rep.Close()
-	var mw = []service.Middleware{}
-	mw = append(mw, service.LoggingMiddleware(logger))
-	svc := service.New(mw, rep, "00", exchFolder)
-	var em map[string][]endpoint.Middleware
-	eps := endpoint1.New(svc, em)
 
-	httpHandler := http1.NewHTTPHandler(eps, defaultHttPOptions(logger))
-	srv := httptest.NewServer(httpHandler)
-	defer srv.Close()
-	//TODO implement
-	return nil
+	var c *Client
+	if id != "00" {
+		//start slave
+		c = NewSlave(rep, id, masterURL, logger)
+	} else {
+		//start master
+		c = NewMaster(rep, id, logger)
+	}
+
+	return c, rep, db, nil
 }
 
 func startService(id, cnn, folder, log string) (*httptest.Server, service.Repository, *sqlx.DB, error) {
@@ -89,38 +87,26 @@ func startService(id, cnn, folder, log string) (*httptest.Server, service.Reposi
 
 	var mw = []service.Middleware{}
 	mw = append(mw, service.LoggingMiddleware(logger))
-	svc := service.New(mw, rep, "zs", folder)
+	svc := service.New(mw, rep, id, folder)
 	var em map[string][]endpoint.Middleware
 	eps := endpoint1.New(svc, em)
 
 	httpHandler := http1.NewHTTPHandler(eps, defaultHttPOptions(logger))
+	m, ok := httpHandler.(*http2.ServeMux)
+	if ok {
+		logger.Log("transport", "HTTP", "serve", folder, "addr", http1.PackPattern)
+		fs := http2.FileServer(http2.Dir(folder))
+		fs = http1.LoggingStatusHandler(fs, logger)
+		m.Handle(http1.PackPattern, http2.StripPrefix(http1.PackPattern, fs))
+	} else {
+		logger.Log("transport", "HTTP", "during", "Handle "+http1.PackPattern, "err", "Can't get ServeMux")
+	}
+
 	srv := httptest.NewServer(httpHandler)
 	return srv, rep, db, nil
 }
 
 func TestSlaveAddActivity(t *testing.T) {
-	/*
-		const exchFolder string = "D:\\Buffer\\zexch\\zs"
-		logger := initLoger("D:\\Buffer\\zexch\\zs\\log\\zsync.log")
-
-		//create slave instance
-		var rep service.Repository
-		rep, db, err := repo.NewTest("root:3411@tcp(127.0.0.1:3306)/zslave", exchFolder)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer rep.Close()
-
-		var mw = []service.Middleware{}
-		mw = append(mw, service.LoggingMiddleware(logger))
-		svc := service.New(mw, rep, "zs", exchFolder)
-		var em map[string][]endpoint.Middleware
-		eps := endpoint1.New(svc, em)
-
-		httpHandler := http1.NewHTTPHandler(eps, defaultHttPOptions(logger))
-		srv := httptest.NewServer(httpHandler)
-		defer srv.Close()
-	*/
 	srv, _, db, err := startService("zs", "root:3411@tcp(127.0.0.1:3306)/zslave", "D:\\Buffer\\zexch\\zs", "D:\\Buffer\\zexch\\zs\\log\\zsync.log")
 	if err != nil {
 		t.Fatal(err)
@@ -181,4 +167,58 @@ func TestSlaveAddActivity(t *testing.T) {
 		}
 	}
 	/**/
+}
+
+func TestSlaveSync(t *testing.T) {
+	/*
+		//start slave
+		slave, _, sdb, err := startService("zs", "root:3411@tcp(127.0.0.1:3306)/zslave", "D:\\Buffer\\zexch\\zs", "D:\\Buffer\\zexch\\zs\\log\\zsync.log")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer sdb.Close()
+		defer slave.Close()
+		t.Log("Slave url ", slave.URL)
+	*/
+
+	//start master
+	master, mrep, mdb, err := startService("00", "root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch\\00", "D:\\Buffer\\zexch\\00\\log\\00.log")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mdb.Close()
+	defer master.Close()
+	t.Log("Master url ", master.URL)
+
+	c, crep, cdb, err := startClient("zs", "root:3411@tcp(127.0.0.1:3306)/zslave", "D:\\Buffer\\zexch\\zs", "D:\\Buffer\\zexch\\zs\\log\\zsync.log", master.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer crep.Close()
+
+	sql := "UPDATE cnv_version SET latest_version = 0 WHERE source = '00'"
+	_, err = cdb.Exec(sql)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.Sync(context.Background())
+
+	v00, err := mrep.ListVersion(context.Background(), "00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	vc, err := crep.ListVersion(context.Background(), "00")
+	if err != nil {
+		t.Fatal(err)
+	}
+	//check if version updated
+	for _, v0 := range v00 {
+		for _, v := range vc {
+			if v0.Table == v.Table && v0.Version != v.Version {
+				t.Error(v0.Table, " Expected master version ", v0.Version, ", got ", v.Version)
+			}
+		}
+	}
+
 }

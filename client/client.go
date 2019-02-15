@@ -77,14 +77,17 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 
 	//compare versions
 	for _, v0 := range vr {
+		c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "remote_version", v0.Version)
 		for _, v1 := range vl {
 			if v0.Source == v1.Source && v0.Table == v1.Table && v0.Version > v1.Version {
+				c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "remote_version", v0.Version, "lockal_version", v1.Version)
 				ch := make(chan pack, 1)
 				//serial
 				//TODO parallel goroutines?
 				//pull pack from remote
 				go func(v service.Version) {
-					vp, err := svc.PullPack(ctx, v.Source, v.Table, v.Version)
+					vp, err := svc.PullPack(ctx, c.id, v.Table, v.Version)
+					c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "pack", vp.Pack, "start", vp.Start, "end", vp.End)
 					ch <- pack{Pack: vp, URL: url, Err: err, Svc: svc}
 				}(v1)
 				select {

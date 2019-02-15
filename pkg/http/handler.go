@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net/http"
 
+	log "github.com/go-kit/kit/log"
+
 	endpoint "github.com/egorka-gh/zbazar/zsync/pkg/endpoint"
 	http1 "github.com/go-kit/kit/transport/http"
 )
@@ -182,4 +184,27 @@ func err2code(err error) int {
 
 type errorWrapper struct {
 	Error string `json:"error"`
+}
+
+//Logging responce  status
+//http.ResponseWriter wrapper
+type statusRespWr struct {
+	http.ResponseWriter // We embed http.ResponseWriter
+	status              int
+}
+
+func (w *statusRespWr) WriteHeader(status int) {
+	w.status = status // Store the status for our own use
+	w.ResponseWriter.WriteHeader(status)
+}
+
+//LoggingStatusHandler is Handler wrapper vs error stus logging
+func LoggingStatusHandler(h http.Handler, logger log.Logger) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		srw := &statusRespWr{ResponseWriter: w}
+		h.ServeHTTP(srw, r)
+		if srw.status >= 400 { // 400+ codes are the error codes
+			logger.Log("status", srw.status, "url", r.RequestURI)
+		}
+	}
 }
