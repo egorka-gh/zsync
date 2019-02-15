@@ -8,14 +8,15 @@ import (
 	"github.com/cavaliercoder/grab"
 
 	"github.com/egorka-gh/zbazar/zsync/client/http"
+	http1 "github.com/egorka-gh/zbazar/zsync/pkg/http"
 )
 
 //sync Slave version
 func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 	defer func() {
-		c.logger.Log("thread", "client", "method", "Sync", "e1", e1)
+		c.logger.Log("method", "Sync", "e1", e1)
 	}()
-	c.logger.Log("thread", "client", "method", "Sync", "operation", "start", "source", "00", "url", c.masterURL)
+	c.logger.Log("method", "Sync", "operation", "start", "source", "00", "url", c.masterURL)
 
 	if c.masterURL == "" {
 		e1 = errors.New("Empty master URL")
@@ -110,11 +111,11 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 	go func() {
 		for p := range loaded {
 			if p.Err != nil {
-				c.logger.Log("thread", "client", "method", "Sync", "operation", "load", "url", p.URL+c.packURL+"/"+p.Pack.Pack, "e1", p.Err)
+				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "e1", p.Err)
 			} else {
 				p.Err = c.db.ExecPack(ctx, p.Pack)
 				if p.Err != nil {
-					c.logger.Log("thread", "client", "method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
+					c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
 				}
 			}
 			//notify server can remove pack

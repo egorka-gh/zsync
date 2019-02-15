@@ -7,13 +7,14 @@ import (
 	"github.com/cavaliercoder/grab"
 
 	"github.com/egorka-gh/zbazar/zsync/client/http"
+	http1 "github.com/egorka-gh/zbazar/zsync/pkg/http"
 	"github.com/egorka-gh/zbazar/zsync/pkg/service"
 )
 
 //sync Master version
 func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	defer func() {
-		c.logger.Log("thread", "client", "method", "Sync", "e1", e1)
+		c.logger.Log("method", "Sync", "e1", e1)
 	}()
 
 	//TODO get versioned tables count from db
@@ -33,10 +34,10 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	//TODO limit workers?
 	for _, s := range src {
 		//start pull worker for source
-		c.logger.Log("thread", "client", "method", "Sync", "operation", "start", "source", s.ID, "url", s.URL)
+		c.logger.Log("method", "Sync", "operation", "start", "source", s.ID, "url", s.URL)
 		svc, err := http.New(s.URL, nil)
 		if e1 != nil {
-			c.logger.Log("thread", "client", "method", "Sync", "operation", "start", "source", s.ID, "url", s.URL, "e1", err)
+			c.logger.Log("method", "Sync", "operation", "start", "source", s.ID, "url", s.URL, "e1", err)
 		} else {
 			wgs.Add(1)
 			go func(url string, svc service.ZsyncService) {
@@ -78,11 +79,11 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	go func() {
 		for p := range loaded {
 			if p.Err != nil {
-				c.logger.Log("thread", "client", "method", "Sync", "operation", "load", "url", p.URL+c.packURL+"/"+p.Pack.Pack, "e1", p.Err)
+				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "e1", p.Err)
 			} else {
 				p.Err = c.db.ExecPack(ctx, p.Pack)
 				if p.Err != nil {
-					c.logger.Log("thread", "client", "method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
+					c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
 				}
 			}
 			if p.Svc != nil {

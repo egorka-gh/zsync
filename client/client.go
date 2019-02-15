@@ -8,6 +8,7 @@ import (
 	"github.com/cavaliercoder/grab"
 	"github.com/go-kit/kit/log"
 
+	"github.com/egorka-gh/zbazar/zsync/pkg/http"
 	"github.com/egorka-gh/zbazar/zsync/pkg/service"
 )
 
@@ -15,27 +16,25 @@ import (
 type Client struct {
 	db        service.Repository
 	id        string
-	packURL   string
 	masterURL string
 	logger    log.Logger
 }
 
 //NewMaster creates client
-func NewMaster(rep service.Repository, id, packURL string, logger log.Logger) *Client {
+func NewMaster(rep service.Repository, id string, logger log.Logger) *Client {
+	cliLog := log.With(logger, "thread", "client")
 	return &Client{
-		db:      rep,
-		id:      id,
-		packURL: packURL,
-		logger:  logger,
+		db:     rep,
+		id:     id,
+		logger: cliLog,
 	}
 }
 
 //NewSlave creates client
-func NewSlave(rep service.Repository, id, masterURL, packURL string, logger log.Logger) *Client {
+func NewSlave(rep service.Repository, id, masterURL string, logger log.Logger) *Client {
 	return &Client{
 		db:        rep,
 		id:        id,
-		packURL:   packURL,
 		logger:    logger,
 		masterURL: masterURL,
 	}
@@ -61,7 +60,7 @@ func (c *Client) Sync(ctx context.Context) (e1 error) {
 //PullSyncPacks checks remote versions and download version pakcs
 func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, source string, url string, out chan<- pack) (e1 error) {
 	defer func() {
-		c.logger.Log("thread", "client", "method", "PullSyncPacks", "source", source, "url", url, "e1", e1)
+		c.logger.Log("method", "PullSyncPacks", "source", source, "url", url, "e1", e1)
 	}()
 
 	//get remote versions
@@ -96,7 +95,7 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 					return
 				case data := <-ch:
 					if data.Err != nil {
-						c.logger.Log("thread", "client", "method", "PullSyncPacks", "source", data.Pack.Source, "url", url, "table", data.Pack.Table, "e1", data.Err)
+						c.logger.Log("method", "PullSyncPacks", "source", data.Pack.Source, "url", url, "table", data.Pack.Table, "e1", data.Err)
 						if e1 == nil {
 							e1 = data.Err
 						}
@@ -125,7 +124,7 @@ func (c *Client) loadSyncPack(ctx context.Context, client *grab.Client, in <-cha
 			return
 		}
 		//create request
-		req, err := grab.NewRequest(c.db.ExchangeFolder(), p.URL+c.packURL+"/"+p.Pack.Pack)
+		req, err := grab.NewRequest(c.db.ExchangeFolder(), p.URL+http.PackPattern+p.Pack.Pack)
 		if err != nil {
 			p.Err = err
 		} else {

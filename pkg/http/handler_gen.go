@@ -17,5 +17,6 @@ func NewHTTPHandler(endpoints endpoint.Endpoints, options map[string][]http.Serv
 	makePackDoneHandler(m, endpoints, options["PackDone"])
 	makeAddActivityHandler(m, endpoints, options["AddActivity"])
 	makeGetLevelHandler(m, endpoints, options["GetLevel"])
+	
 	return m
 }

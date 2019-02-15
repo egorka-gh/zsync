@@ -4,10 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+
 	endpoint "github.com/egorka-gh/zbazar/zsync/pkg/endpoint"
 	http1 "github.com/go-kit/kit/transport/http"
-	"net/http"
 )
+
+//PackPattern url pattern for serving static content (sync pack files)
+const PackPattern string = "/pack/"
 
 // makeListVersionHandler creates the handler logic
 func makeListVersionHandler(m *http.ServeMux, endpoints endpoint.Endpoints, options []http1.ServerOption) {

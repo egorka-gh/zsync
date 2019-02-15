@@ -135,8 +135,9 @@ func Run() {
 	}
 	defer rep.Close()
 
-	svc := service.New(getServiceMiddleware(logger), rep, *instanseID, *exchangeFolder)
-	eps := endpoint.New(svc, getEndpointMiddleware(logger))
+	svcLog := log.With(logger, "thread", "service")
+	svc := service.New(getServiceMiddleware(svcLog), rep, *instanseID, *exchangeFolder)
+	eps := endpoint.New(svc, getEndpointMiddleware(svcLog))
 	g := createService(eps)
 	initMetricsEndpoint(g)
 	initCancelInterrupt(g)
@@ -148,6 +149,15 @@ func initHttpHandler(endpoints endpoint.Endpoints, g *group.Group) {
 	// Add your http options here
 
 	httpHandler := http.NewHTTPHandler(endpoints, options)
+	m, ok := httpHandler.(*http1.ServeMux)
+	if ok {
+		logger.Log("transport", "HTTP", "serve", *exchangeFolder, "addr", *httpAddr+http.PackPattern)
+		fs := http1.FileServer(http1.Dir(*exchangeFolder))
+		m.Handle(http.PackPattern, http1.StripPrefix(http.PackPattern, fs))
+	} else {
+		logger.Log("transport", "HTTP", "during", "Handle "+http.PackPattern, "err", "Can't get ServeMux")
+	}
+
 	httpListener, err := net.Listen("tcp", *httpAddr)
 	if err != nil {
 		logger.Log("transport", "HTTP", "during", "Listen", "err", err)

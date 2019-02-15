@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
+	"net/http"
 	"time"
 )
 
@@ -41,4 +43,10 @@ func main() {
 
 		}
 	}
+
+	fs := http.FileServer(http.Dir("D:\\Buffer\\zexch\\zs\\log\\"))
+	http.Handle("/static/", http.StripPrefix("/static/", fs))
+
+	log.Println("Listening...")
+	http.ListenAndServe(":3000", nil)
 }
