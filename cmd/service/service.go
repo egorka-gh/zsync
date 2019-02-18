@@ -219,3 +219,26 @@ func initCancelInterrupt(g *group.Group) {
 		close(cancelInterrupt)
 	})
 }
+
+func initLoger(toFile string) log.Logger {
+	var logger log.Logger
+	if toFile == "" {
+		logger = log.NewLogfmtLogger(os.Stderr)
+	} else {
+		path := *logFolder
+		if !os.IsPathSeparator(path[len(path)-1]) {
+			path = path + string(os.PathSeparator)
+		}
+		path = path + "zsync.log"
+		logger = log.NewLogfmtLogger(&lumberjack.Logger{
+			Filename:   path,
+			MaxSize:    5, // megabytes
+			MaxBackups: 3,
+			MaxAge:     10, //days
+		})
+	}
+	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
+	logger = log.With(logger, "caller", log.DefaultCaller)
+
+	return logger
+}

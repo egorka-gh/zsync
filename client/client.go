@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"time"
 
 	"github.com/cavaliercoder/grab"
 	"github.com/go-kit/kit/log"
@@ -158,10 +159,42 @@ func (c *Client) loadSyncPack(ctx context.Context, client *grab.Client, in <-cha
 
 //FixVersions updates versions in db
 func (c *Client) FixVersions(ctx context.Context) (e0 error) {
+	defer func() {
+		c.logger.Log("method", "FixVersions", "error", e0)
+	}()
 	return c.db.FixVersions(ctx, c.id)
 }
 
-//ExecPack apply version pack in db
-func (c *Client) ExecPack(ctx context.Context, pack service.VersionPack) (e0 error) {
-	return c.db.ExecPack(ctx, pack)
+//CalcBalance recalcs balance from first day of month
+func (c *Client) CalcBalance(ctx context.Context) (e0 error) {
+	//get first day of month
+	now := time.Now()
+	currentYear, currentMonth, _ := now.Date()
+	currentLocation := now.Location()
+	firstOfMonth := time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, currentLocation)
+
+	defer func() {
+		c.logger.Log("method", "CalcBalance", "from-date", firstOfMonth, "error", e0)
+	}()
+	return c.db.CalcBalance(ctx, firstOfMonth)
+}
+
+//CalcLevels recalcs levels by previouse month
+func (c *Client) CalcLevels(ctx context.Context) (e0 error) {
+	//TODO recalc balace??
+	//get first day of previouse month
+	now := time.Now()
+	currentYear, currentMonth, _ := now.Date()
+	currentMonth = currentMonth - 1
+	if currentMonth < 1 {
+		currentYear = currentYear - 1
+		currentMonth = 12
+	}
+	currentLocation := now.Location()
+	firstOfMonth := time.Date(currentYear, currentMonth, 1, 0, 0, 0, 0, currentLocation)
+
+	defer func() {
+		c.logger.Log("method", "CalcLevels", "from-date", firstOfMonth, "error", e0)
+	}()
+	return c.db.CalcLevels(ctx, firstOfMonth)
 }
