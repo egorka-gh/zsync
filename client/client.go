@@ -77,7 +77,7 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 
 	//compare versions
 	for _, v0 := range vr {
-		c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "remote_version", v0.Version)
+		//c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "remote_version", v0.Version)
 		for _, v1 := range vl {
 			if v0.Source == v1.Source && v0.Table == v1.Table && v0.Version > v1.Version {
 				c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "remote_version", v0.Version, "lockal_version", v1.Version)

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+
 	log "github.com/go-kit/kit/log"
 )
 
@@ -30,7 +31,7 @@ func (l loggingMiddleware) ListVersion(ctx context.Context, source string) (v0 [
 }
 func (l loggingMiddleware) PullPack(ctx context.Context, source string, table string, start int) (v0 VersionPack, e1 error) {
 	defer func() {
-		l.logger.Log("method", "PullPack", "source", source, "table", table, "start", start, "v0", v0, "e1", e1)
+		l.logger.Log("method", "PullPack", "source", source, "table", table, "start", start, "end", v0.End, "pack", v0.Pack, "e1", e1)
 	}()
 	return l.next.PullPack(ctx, source, table, start)
 }
@@ -42,7 +43,7 @@ func (l loggingMiddleware) PushPack(ctx context.Context, pack VersionPack) (e0 e
 }
 func (l loggingMiddleware) PackDone(ctx context.Context, pack VersionPack) (e0 error) {
 	defer func() {
-		l.logger.Log("method", "PackDone", "pack", pack, "e0", e0)
+		l.logger.Log("method", "PackDone", "pack", pack.Pack, "e0", e0)
 	}()
 	return l.next.PackDone(ctx, pack)
 }

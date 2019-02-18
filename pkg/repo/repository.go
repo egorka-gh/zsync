@@ -105,6 +105,7 @@ func (b *basicRepository) ExecPack(ctx context.Context, pack service.VersionPack
 			_, err = b.db.ExecContext(ctx, sql, pack.Source, pack.End, pack.Table, pack.End)
 		}
 	}
+	b.delPack(ctx, pack.Pack)
 	return err
 
 }

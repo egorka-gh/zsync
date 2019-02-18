@@ -189,6 +189,7 @@ func TestSlaveSync(t *testing.T) {
 	defer mdb.Close()
 	defer master.Close()
 	t.Log("Master url ", master.URL)
+	mrep.FixVersions(context.Background(), "00")
 
 	c, crep, cdb, err := startClient("zs", "root:3411@tcp(127.0.0.1:3306)/zslave", "D:\\Buffer\\zexch\\zs", "D:\\Buffer\\zexch\\zs\\log\\zsync.log", master.URL)
 	if err != nil {
@@ -216,7 +217,60 @@ func TestSlaveSync(t *testing.T) {
 	for _, v0 := range v00 {
 		for _, v := range vc {
 			if v0.Table == v.Table && v0.Version != v.Version {
-				t.Error(v0.Table, " Expected master version ", v0.Version, ", got ", v.Version)
+				t.Error(v0.Table, " Expected remote version ", v0.Version, ", got ", v.Version)
+			}
+		}
+	}
+
+}
+
+func TestMasterSync(t *testing.T) {
+
+	//start slave
+	//master, mrep, mdb, err := startService("00", "root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch\\00", "D:\\Buffer\\zexch\\00\\log\\00.log")
+	master, mrep, mdb, err := startService("zs", "root:3411@tcp(127.0.0.1:3306)/zslave", "D:\\Buffer\\zexch\\zs", "D:\\Buffer\\zexch\\zs\\log\\zsync.log")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer mdb.Close()
+	defer master.Close()
+	t.Log("Master url ", master.URL)
+	mrep.FixVersions(context.Background(), "zs")
+
+	//c, crep, cdb, err := startClient("zs", "root:3411@tcp(127.0.0.1:3306)/zslave", "D:\\Buffer\\zexch\\zs", "D:\\Buffer\\zexch\\zs\\log\\zsync.log", master.URL)
+	c, crep, cdb, err := startClient("00", "root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch\\00", "D:\\Buffer\\zexch\\00\\log\\00.log", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer crep.Close()
+
+	sql := "UPDATE cnv_source SET url = '" + master.URL + "' WHERE id = 'zs'"
+	_, err = cdb.Exec(sql)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sql = "UPDATE cnv_version SET latest_version = 0 WHERE source = 'zs'"
+	_, err = cdb.Exec(sql)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.Sync(context.Background())
+
+	v00, err := mrep.ListVersion(context.Background(), "zs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	vc, err := crep.ListVersion(context.Background(), "zs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	//check if version updated
+	for _, v0 := range v00 {
+		for _, v := range vc {
+			if v0.Table == v.Table && v0.Version != v.Version {
+				t.Error(v0.Table, " Expected remote version ", v0.Version, ", got ", v.Version)
 			}
 		}
 	}

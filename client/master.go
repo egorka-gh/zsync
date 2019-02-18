@@ -40,10 +40,10 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 			c.logger.Log("method", "Sync", "operation", "start", "source", s.ID, "url", s.URL, "e1", err)
 		} else {
 			wgs.Add(1)
-			go func(url string, svc service.ZsyncService) {
+			go func(s service.Source, svc service.ZsyncService) {
 				defer wgs.Done()
-				_ = c.pullSyncPacks(ctx, svc, c.id, url, pulled)
-			}(s.URL, svc)
+				_ = c.pullSyncPacks(ctx, svc, s.ID, s.URL, pulled)
+			}(s, svc)
 		}
 	}
 
