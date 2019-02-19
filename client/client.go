@@ -33,10 +33,11 @@ func NewMaster(rep service.Repository, id string, logger log.Logger) *Client {
 
 //NewSlave creates client
 func NewSlave(rep service.Repository, id, masterURL string, logger log.Logger) *Client {
+	cliLog := log.With(logger, "thread", "client")
 	return &Client{
 		db:        rep,
 		id:        id,
-		logger:    logger,
+		logger:    cliLog,
 		masterURL: masterURL,
 	}
 }

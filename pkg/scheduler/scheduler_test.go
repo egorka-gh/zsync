@@ -12,7 +12,7 @@ import (
 func TestShedule(t *testing.T) {
 	pCount, dCount, mCount, mwCount := 0, 0, 0, 0
 
-	sh := Scheduler{}
+	sh := New()
 	sh.AddPeriodic(3*time.Minute,
 		func(ctx context.Context) error {
 			pCount++
@@ -84,7 +84,7 @@ func TestShedule(t *testing.T) {
 		w.Done()
 	}()
 
-	time.AfterFunc(7*time.Minute, sh.Stop)
+	time.AfterFunc(6*time.Minute, sh.Stop)
 	w.Wait()
 	if pCount != 3 {
 		t.Error("Periodic wrong executes count, expected 3, got", pCount)
@@ -97,5 +97,55 @@ func TestShedule(t *testing.T) {
 	}
 	if mwCount != 0 {
 		t.Error("Monthly (tommorow) wrong executes count, expected 0, got", mwCount)
+	}
+}
+
+func TestStop(t *testing.T) {
+	pCount := 0
+
+	sh := New()
+	sh.AddPeriodic(3*time.Minute,
+		func(ctx context.Context) error {
+			fmt.Println("Doing Periodic")
+			t := time.NewTimer(1 * time.Minute)
+			select {
+			case <-ctx.Done():
+				fmt.Println("Periodic canceled")
+				t.Stop()
+			case <-t.C:
+				pCount++
+				fmt.Println("Complite Periodic")
+			}
+			return nil
+		},
+	)
+	sh.AddPeriodic(2*time.Minute,
+		func(ctx context.Context) error {
+			fmt.Println("Doing Periodic")
+			t := time.NewTimer(1 * time.Minute)
+			select {
+			case <-ctx.Done():
+				fmt.Println("Periodic canceled")
+				t.Stop()
+			case <-t.C:
+				pCount++
+				fmt.Println("Complite Periodic")
+			}
+			return nil
+		},
+	)
+
+	w := sync.WaitGroup{}
+	w.Add(1)
+	go func() {
+		sh.Run()
+		w.Done()
+	}()
+
+	time.AfterFunc(30*time.Second, sh.Stop)
+	w.Wait()
+
+	if pCount != 0 {
+		t.Error("Periodic wrong executes count, expected 0, got", pCount)
 	}
 }

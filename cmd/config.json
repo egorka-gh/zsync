@@ -1,0 +1,12 @@
+{
+    "http-addr": ":8081",
+    "debug-addr": ":8080",
+    "id": "00",
+    "mysql": "root:3411@tcp(127.0.0.1:3306)/pshdata",
+    "folder": "D:\\Buffer\\zexch\\00",
+    "log": "D:\\Buffer\\zexch\\00\\log",
+    "sync-interval": "10",
+    "balance-hour": "2",
+    "level-days": "1,2",
+    "level-hour": "2"
+}

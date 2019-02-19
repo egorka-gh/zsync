@@ -1,13 +1,30 @@
 package service
 
 import (
+	"fmt"
+	"net"
+	http1 "net/http"
+	"os/signal"
+	"strconv"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/egorka-gh/zbazar/zsync/client"
 	endpoint "github.com/egorka-gh/zbazar/zsync/pkg/endpoint"
+	"github.com/egorka-gh/zbazar/zsync/pkg/http"
 	"github.com/egorka-gh/zbazar/zsync/pkg/repo"
+	"github.com/egorka-gh/zbazar/zsync/pkg/scheduler"
 	service "github.com/egorka-gh/zbazar/zsync/pkg/service"
+	endpoint1 "github.com/go-kit/kit/endpoint"
 	log "github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/metrics/prometheus"
 	"github.com/kardianos/osext"
 	group "github.com/oklog/oklog/pkg/group"
+	prometheus1 "github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
+	lumberjack "gopkg.in/natefinch/lumberjack.v2"
 	//lightsteptracergo "github.com/lightstep/lightstep-tracer-go"
 
 	opentracinggo "github.com/opentracing/opentracing-go"
@@ -21,25 +38,6 @@ import (
 var tracer opentracinggo.Tracer
 var logger log.Logger
 
-// Define our flags. Your service probably won't need to bind listeners for
-// all* supported transports, but we do it here for demonstration purposes.
-//var fs = flag.NewFlagSet("zsync", flag.ExitOnError)
-//var debugAddr = fs.String("debug.addr", ":8080", "Debug and metrics listen address")
-//var httpAddr = fs.String("http-addr", ":8081", "HTTP listen address")
-//var mysqlCnn = fs.String("mysql", "", "MySQL connection string")
-//var exchangeFolder = fs.String("folder", "", "MySQL exchange folder")
-//var logFolder = fs.String("log", "", "Log folder")
-//var instanseID = fs.String("id", "", "Instanse ID")
-
-//var grpcAddr = fs.String("grpc-addr", ":8082", "gRPC listen address")
-//var thriftAddr = fs.String("thrift-addr", ":8083", "Thrift listen address")
-//var thriftProtocol = fs.String("thrift-protocol", "binary", "binary, compact, json, simplejson")
-//var thriftBuffer = fs.Int("thrift-buffer", 0, "0 for unbuffered")
-//var thriftFramed = fs.Bool("thrift-framed", false, "true to enable framing")
-//var zipkinURL = fs.String("zipkin-url", "", "Enable Zipkin tracing via a collector URL e.g. http://localhost:9411/api/v1/spans")
-//var lightstepToken = fs.String("lightstep-token", "", "Enable LightStep tracing via a LightStep access token")
-//var appdashAddr = fs.String("appdash-addr", "", "Enable Appdash tracing via an Appdash server host:port")
-
 //RunServer strat service & client
 func RunServer() {
 	viper.SetDefault("http-addr", ":8081")  //HTTP listen addres
@@ -47,12 +45,12 @@ func RunServer() {
 	viper.SetDefault("mysql", "")           //MySQL connection string
 	viper.SetDefault("folder", "")          //MySQL exchange folder
 	viper.SetDefault("log", "")             //Log folder
-	viper.SetDefault("id", "00")            //Instanse ID
+	viper.SetDefault("id", "")              //Instanse ID
 	viper.SetDefault("master-url", "")      //master server url (need only for slave server)
 	viper.SetDefault("sync-interval", "10") //sinc interval (minutes)
 	viper.SetDefault("balance-hour", "2")   //hour of daily balance recalculation
-	viper.SetDefault("lavel-days", "1,2")   //days of monthly level recalculation (comma sepparated)
-	viper.SetDefault("lavel-hour", "2")     //hour of monthly level recalculation
+	viper.SetDefault("level-days", "1,2")   //days of monthly level recalculation (comma sepparated)
+	viper.SetDefault("level-hour", "2")     //hour of monthly level recalculation
 
 	path, err := osext.ExecutableFolder()
 	if err != nil {
@@ -68,18 +66,16 @@ func RunServer() {
 		}
 	*/
 
-	fs.Parse(os.Args[1:])
-
 	// Create a single logger, which we'll use and give to other components.
-	initLoger(viper.GetString("log"))
+	logger = initLoger(viper.GetString("log"))
 
-	var debugAddr = viper.GetString("debug-addr")
-	var httpAddr = viper.GetString("http-addr")
+	//var debugAddr = viper.GetString("debug-addr")
+	//var httpAddr = viper.GetString("http-addr")
 	var mysqlCnn = viper.GetString("mysql")
 	var exchangeFolder = viper.GetString("folder")
-	var logFolder = viper.GetString("log")
+	//var logFolder = viper.GetString("log")
 	var instanseID = viper.GetString("id")
-	var masterURL = viper.GetString("master")
+	var masterURL = viper.GetString("master-url")
 
 	if instanseID == "" {
 		logger.Log("Error", "Instanse ID not set")
@@ -115,14 +111,176 @@ func RunServer() {
 	}
 	defer rep.Close()
 
+	//create client
+	var cli *client.Client
+	if instanseID != "00" {
+		//start slave
+		cli = client.NewSlave(rep, instanseID, masterURL, logger)
+	} else {
+		//start master
+		cli = client.NewMaster(rep, instanseID, logger)
+	}
+
+	//create service
 	svcLog := log.With(logger, "thread", "service")
 	svc := service.New(getServiceMiddleware(svcLog), rep, instanseID, exchangeFolder)
 	eps := endpoint.New(svc, getEndpointMiddleware(svcLog))
+
+	//run group
 	g := createService(eps)
+	initClientScheduler(g, cli)
 	initMetricsEndpoint(g)
 	initCancelInterrupt(g)
 	logger.Log("exit", g.Run())
 }
 
-func initClientScheduler(g *group.Group) {
+func initHttpHandler(endpoints endpoint.Endpoints, g *group.Group) {
+	options := defaultHttpOptions(logger, tracer)
+	// Add your http options here
+
+	httpHandler := http.NewHTTPHandler(endpoints, options)
+	var httpAddr = viper.GetString("http-addr")
+	var exchangeFolder = viper.GetString("folder")
+
+	m, ok := httpHandler.(*http1.ServeMux)
+	if ok {
+		logger.Log("transport", "HTTP", "serve", exchangeFolder, "addr", httpAddr+http.PackPattern)
+		fs := http1.FileServer(http1.Dir(exchangeFolder))
+		fs = http.LoggingStatusHandler(fs, logger)
+		m.Handle(http.PackPattern, http1.StripPrefix(http.PackPattern, fs))
+	} else {
+		logger.Log("transport", "HTTP", "during", "Handle "+http.PackPattern, "err", "Can't get ServeMux")
+	}
+
+	httpListener, err := net.Listen("tcp", httpAddr)
+	if err != nil {
+		logger.Log("transport", "HTTP", "during", "Listen", "err", err)
+	}
+	g.Add(func() error {
+		logger.Log("transport", "HTTP", "addr", httpAddr)
+		return http1.Serve(httpListener, httpHandler)
+	}, func(error) {
+		httpListener.Close()
+	})
+
+}
+func getServiceMiddleware(logger log.Logger) (mw []service.Middleware) {
+	mw = []service.Middleware{}
+	mw = addDefaultServiceMiddleware(logger, mw)
+	// Append your middleware here
+
+	return
+}
+func getEndpointMiddleware(logger log.Logger) (mw map[string][]endpoint1.Middleware) {
+	mw = map[string][]endpoint1.Middleware{}
+	duration := prometheus.NewSummaryFrom(prometheus1.SummaryOpts{
+		Help:      "Request duration in seconds.",
+		Name:      "request_duration_seconds",
+		Namespace: "example",
+		Subsystem: "zsync",
+	}, []string{"method", "success"})
+	addDefaultEndpointMiddleware(logger, duration, mw)
+	// Add you endpoint middleware here
+
+	return
+}
+func initMetricsEndpoint(g *group.Group) {
+	var debugAddr = viper.GetString("debug-addr")
+	http1.DefaultServeMux.Handle("/metrics", promhttp.Handler())
+	debugListener, err := net.Listen("tcp", debugAddr)
+	if err != nil {
+		logger.Log("transport", "debug/HTTP", "during", "Listen", "err", err)
+	}
+	g.Add(func() error {
+		logger.Log("transport", "debug/HTTP", "addr", debugAddr)
+		return http1.Serve(debugListener, http1.DefaultServeMux)
+	}, func(error) {
+		debugListener.Close()
+	})
+}
+func initCancelInterrupt(g *group.Group) {
+	cancelInterrupt := make(chan struct{})
+	g.Add(func() error {
+		c := make(chan os.Signal, 1)
+		signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
+		select {
+		case sig := <-c:
+			return fmt.Errorf("received signal %s", sig)
+		case <-cancelInterrupt:
+			return nil
+		}
+	}, func(error) {
+		close(cancelInterrupt)
+	})
+}
+
+func initLoger(logPath string) log.Logger {
+	var logger log.Logger
+	if logPath == "" {
+		logger = log.NewLogfmtLogger(os.Stderr)
+	} else {
+		path := logPath
+		if !os.IsPathSeparator(path[len(path)-1]) {
+			path = path + string(os.PathSeparator)
+		}
+		path = path + "zsync.log"
+		logger = log.NewLogfmtLogger(&lumberjack.Logger{
+			Filename:   path,
+			MaxSize:    5, // megabytes
+			MaxBackups: 3,
+			MaxAge:     10, //days
+		})
+	}
+	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
+	logger = log.With(logger, "caller", log.DefaultCaller)
+
+	return logger
+}
+
+func initClientScheduler(g *group.Group, cli *client.Client) {
+
+	interval := viper.GetInt("sync-interval")
+	if interval < 10 {
+		interval = 10
+	}
+	balanceHour := viper.GetInt("balance-hour")
+	if balanceHour <= 0 {
+		balanceHour = 2
+	}
+	levelHour := viper.GetInt("level-hour")
+	if levelHour <= 0 {
+		levelHour = 2
+	}
+
+	levelDaysStr := viper.GetString("level-days")
+	var levelDays []int
+	a := strings.Split(levelDaysStr, ",")
+	for _, s := range a {
+		i, err := strconv.Atoi(s)
+		if err == nil && i > 0 && i < 31 {
+			levelDays = append(levelDays, i)
+		}
+	}
+	if len(levelDays) == 0 {
+		levelDays = append(levelDays, 1)
+	}
+
+	scheduler := scheduler.New()
+
+	scheduler.AddPeriodic(time.Duration(interval)*time.Minute, cli.Sync)
+	if viper.GetString("id") == "00" {
+		scheduler.AddDaily(balanceHour, cli.CalcBalance)
+		for _, d := range levelDays {
+			scheduler.AddMonthly(d, levelHour, cli.CalcLevels)
+		}
+	}
+	scheduler.AddPeriodic(time.Duration(interval)*time.Minute, cli.FixVersions)
+
+	g.Add(func() error {
+		logger.Log("client", "scheduler", "sync", interval, "balanceHour", balanceHour, "levelDays", levelDaysStr, "levelHour", levelHour)
+		return scheduler.Run()
+	}, func(error) {
+		scheduler.Stop()
+	})
+
 }
