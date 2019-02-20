@@ -58,8 +58,8 @@ func (b *basicZsyncService) ListVersion(ctx context.Context, source string) (v0 
 }
 
 func (b *basicZsyncService) PullPack(ctx context.Context, source string, table string, start int) (v0 VersionPack, e1 error) {
-	//pack name vs asker (source) prifix and start version sifix
-	var fileName = source + "_" + table + "_" + strconv.FormatInt(int64(start), 10) + ".dat"
+	//pack name vs (service id)-(asker id) prifix and start version sifix
+	var fileName = b.id + "-" + source + "_" + table + "_" + strconv.FormatInt(int64(start), 10) + ".dat"
 
 	//check delete pack file before sql
 	e1 = b.delPack(ctx, fileName)

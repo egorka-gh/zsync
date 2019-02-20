@@ -68,13 +68,13 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 	//get remote versions
 	vr, e1 := svc.ListVersion(ctx, c.id)
 	if e1 != nil {
-		return
+		return e1
 	}
 
 	//load lockal versions
 	vl, e1 := c.db.ListVersion(ctx, source)
 	if e1 != nil {
-		return
+		return e1
 	}
 
 	//compare versions
@@ -97,7 +97,7 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 					<-ch // Wait for client
 					//fmt.Println("Cancel the context")
 					e1 = ctx.Err()
-					return
+					return e1
 				case data := <-ch:
 					if data.Err != nil {
 						c.logger.Log("method", "PullSyncPacks", "source", data.Pack.Source, "url", url, "table", data.Pack.Table, "e1", data.Err)
@@ -114,7 +114,7 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 			}
 		}
 	}
-	return
+	return e1
 }
 
 //loadSyncPack pack download worker

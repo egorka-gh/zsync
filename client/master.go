@@ -21,7 +21,7 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	const tablesNum int = 1
 	src, e1 := c.db.ListSource(ctx, c.id)
 	if e1 != nil {
-		return
+		return e1
 	}
 
 	wg := sync.WaitGroup{}
@@ -98,5 +98,5 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	}()
 
 	wg.Wait()
-	return
+	return e1
 }

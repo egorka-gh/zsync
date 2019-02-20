@@ -1,11 +1,20 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
+	"net/http"
+	"strings"
+	"time"
 
 	fixedwidth "github.com/ianlopshire/go-fixedwidth"
+
+	"github.com/egorka-gh/zbazar/zsync/pkg/endpoint"
+	"github.com/egorka-gh/zbazar/zsync/pkg/service"
 )
 
 func main() {
@@ -29,10 +38,49 @@ func main() {
 
 func serve(pc net.PacketConn, addr net.Addr, buf []byte) {
 	m := parseMsg(buf)
-	if m.Mode == 35 || m.Mode == 31 {
-		fmt.Println("Get from ", addr.String(), ". packet:", string(buf))
-		fmt.Println(m)
+	if m.Mode == 35 { //|| m.Mode == 31
+		//fmt.Println("Get from ", addr.String(), ". packet:", string(buf))
+		//fmt.Println(m)
+		srvURL := "http://127.0.0.1:8091"
+		src := "s1"
+		if m.Number > 15 {
+			src = "s2"
+			srvURL = "http://127.0.0.1:8092"
+		}
+		dt := time.Date(2000+m.Year, time.Month(m.Month), m.Day, m.Hour, m.Min, m.Sec, 0, time.Now().Location())
+		a := service.Activity{
+			Source:    src, //not need it
+			Doc:       fmt.Sprintf("%v.%v", m.Number, m.CKNumber),
+			DocDate:   dt.Format("2006-01-02 15:04:05"),
+			Card:      strings.Trim(m.CardNumber, " "),
+			DocSum:    m.Sum,
+			BonuceSum: m.Sum,
+		}
+		buff, err := json.Marshal(endpoint.AddActivityRequest{Activity: a})
+		if err != nil {
+			fmt.Println("Err ", err)
+			return
+		}
+		//fmt.Println("Request", string(buff))
+		req, err := http.NewRequest("POST", srvURL+"/add-activity", bytes.NewReader(buff))
+		if err != nil {
+			fmt.Println("Err ", err)
+			return
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			fmt.Println("Err ", err)
+			return
+		}
+		_, err = ioutil.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Err ", err)
+			return
+		}
+		//fmt.Println("Responce ", string(body))
+
 	}
+
 }
 
 type message struct {
@@ -49,7 +97,7 @@ type message struct {
 	//GoodsPrice string `fixed:"150,164"` //15 array[0..14] of char Числовой Цена товара
 	//GoodsQuant string `fixed:"165,179"` //15 array[0..14] of char Числовой Количество		товара
 	//GoodsSum   string `fixed:"180,194"` //15 array[0..14] of char Числовой Сумма по товарной позиции
-	Sum        float64 `fixed:"195,209"` //15 array[0..14] of char Числовой Сумма по чеку
+	Sum        float32 `fixed:"195,209"` //15 array[0..14] of char Числовой Сумма по чеку
 	CardType   string  `fixed:"210,212"` //3 array[0..2] of char Символьный Тип карты(дисконтная,кредитная)
 	CardNumber string  `fixed:"213,232"` //20 array[0..19] of char Символьный Номер карты
 	//DiscStr    string `fixed:"233,247"` //15 array[0..14] of char Числовой Скидка по строкечека

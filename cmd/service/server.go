@@ -56,6 +56,7 @@ func RunServer() {
 	if err != nil {
 		path = "."
 	}
+	//fmt.Println("Path ", path)
 	viper.AddConfigPath(path)
 	viper.SetConfigName("config")
 	err = viper.ReadInConfig()

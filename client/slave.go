@@ -20,12 +20,12 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 
 	if c.masterURL == "" {
 		e1 = errors.New("Empty master URL")
-		return
+		return e1
 	}
 
 	svc, e1 := http.New(c.masterURL, nil)
 	if e1 != nil {
-		return
+		return e1
 	}
 
 	//TODO get versioned tables count from db
@@ -128,5 +128,5 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 	}()
 
 	wg.Wait()
-	return
+	return e1
 }
