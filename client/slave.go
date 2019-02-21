@@ -120,9 +120,7 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 			}
 			//notify server can remove pack
 			//don't care rusult
-			go func(p pack) {
-				_ = svc.PackDone(ctx, p.Pack)
-			}(p)
+			_ = svc.PackDone(ctx, p.Pack)
 		}
 		wg.Done()
 	}()

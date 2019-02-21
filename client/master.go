@@ -89,9 +89,7 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 			if p.Svc != nil {
 				//notify server can remove pack
 				//don't care rusult
-				go func(p pack) {
-					_ = p.Svc.PackDone(ctx, p.Pack)
-				}(p)
+				_ = p.Svc.PackDone(ctx, p.Pack)
 			}
 		}
 		wg.Done()
