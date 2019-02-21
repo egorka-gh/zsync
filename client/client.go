@@ -90,6 +90,7 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 		for _, v1 := range vl {
 			if v0.Source == v1.Source && v0.Table == v1.Table && v0.Version > v1.Version {
 				c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "remote_version", v0.Version, "lockal_version", v1.Version)
+				//TODO not closed chan
 				ch := make(chan pack, 1)
 				//serial
 				//TODO parallel goroutines?
@@ -99,6 +100,7 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 					c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "pack", vp.Pack, "start", vp.Start, "end", vp.End)
 					ch <- pack{Pack: vp, URL: url, Err: err, Svc: svc}
 				}(v1)
+				//waite for responce or ctx cancel
 				select {
 				case <-ctx.Done():
 					<-ch // Wait for client
@@ -118,6 +120,7 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 						}
 					}
 				}
+				close(ch)
 			}
 		}
 	}
