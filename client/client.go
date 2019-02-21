@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"errors"
 	"time"
 
 	"github.com/cavaliercoder/grab"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/egorka-gh/zbazar/zsync/pkg/http"
 	"github.com/egorka-gh/zbazar/zsync/pkg/service"
+	http1 "github.com/go-kit/kit/transport/http"
 )
 
 //Client works vs ZsyncService
@@ -69,6 +71,11 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 	vr, e1 := svc.ListVersion(ctx, c.id)
 	if e1 != nil {
 		return e1
+	}
+
+	if len(vr) == 0 {
+		//empty response or transport error
+		return errors.New("Empty response")
 	}
 
 	//load lockal versions
@@ -198,4 +205,27 @@ func (c *Client) CalcLevels(ctx context.Context) (e0 error) {
 		c.logger.Log("method", "CalcLevels", "from-date", firstOfMonth, "error", e0)
 	}()
 	return c.db.CalcLevels(ctx, firstOfMonth)
+}
+
+func defaultHttpOptions(logger log.Logger) map[string][]http1.ClientOption {
+	options := map[string][]http1.ClientOption{
+		"AddActivity": {clientFinalizer("AddActivity", logger)},
+		"GetLevel":    {clientFinalizer("GetLevel", logger)},
+		"ListVersion": {clientFinalizer("ListVersion", logger)},
+		"PackDone":    {clientFinalizer("PackDone", logger)},
+		"PullPack":    {clientFinalizer("PullPack", logger)},
+		"PushPack":    {clientFinalizer("PushPack", logger)},
+	}
+	return options
+}
+
+func clientFinalizer(method string, logger log.Logger) http1.ClientOption {
+	lg := log.With(logger, "method", method)
+	return http1.ClientFinalizer(
+		func(ctx context.Context, err error) {
+			if err != nil {
+				lg.Log("transport_error", err)
+			}
+		},
+	)
 }

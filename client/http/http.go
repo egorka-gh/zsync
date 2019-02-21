@@ -4,15 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"io/ioutil"
+	http1 "net/http"
+	"net/url"
+	"strings"
+
 	endpoint1 "github.com/egorka-gh/zbazar/zsync/pkg/endpoint"
 	http2 "github.com/egorka-gh/zbazar/zsync/pkg/http"
 	service "github.com/egorka-gh/zbazar/zsync/pkg/service"
 	endpoint "github.com/go-kit/kit/endpoint"
 	http "github.com/go-kit/kit/transport/http"
-	"io/ioutil"
-	http1 "net/http"
-	"net/url"
-	"strings"
 )
 
 // New returns an AddService backed by an HTTP server living at the remote

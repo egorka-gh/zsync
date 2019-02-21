@@ -35,7 +35,7 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	for _, s := range src {
 		//start pull worker for source
 		c.logger.Log("method", "Sync", "operation", "start", "source", s.ID, "url", s.URL)
-		svc, err := http.New(s.URL, nil)
+		svc, err := http.New(s.URL, defaultHttpOptions(c.logger))
 		if e1 != nil {
 			c.logger.Log("method", "Sync", "operation", "start", "source", s.ID, "url", s.URL, "e1", err)
 		} else {

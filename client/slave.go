@@ -23,7 +23,7 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 		return e1
 	}
 
-	svc, e1 := http.New(c.masterURL, nil)
+	svc, e1 := http.New(c.masterURL, defaultHttpOptions(c.logger))
 	if e1 != nil {
 		return e1
 	}

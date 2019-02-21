@@ -232,7 +232,7 @@ func initLoger(logPath string) log.Logger {
 			MaxAge:     10, //days
 		})
 	}
-	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
+	logger = log.With(logger, "ts", log.DefaultTimestamp) // .DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
 
 	return logger
