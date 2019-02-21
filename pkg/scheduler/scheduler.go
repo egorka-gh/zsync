@@ -118,8 +118,10 @@ func (s *basicScheduler) Run() error {
 				}(cancel)
 				//run task
 				t.execute(ctx)
-				t.lastRun = time.Now()
+				//release context & stop monitor
+				cancel()
 				close(complite)
+				t.lastRun = time.Now()
 			}
 			if !alive {
 				break

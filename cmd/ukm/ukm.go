@@ -48,13 +48,19 @@ func serve(pc net.PacketConn, addr net.Addr, buf []byte) {
 			srvURL = "http://127.0.0.1:8092"
 		}
 		dt := time.Date(2000+m.Year, time.Month(m.Month), m.Day, m.Hour, m.Min, m.Sec, 0, time.Now().Location())
+		var k float32 = 1
+
+		if strings.Trim(m.CardNumber, " ") == "01230001700044" && m.Sec%2 == 1 {
+			//random +/- k
+			k = -1
+		}
 		a := service.Activity{
 			Source:    src, //not need it
 			Doc:       fmt.Sprintf("%v.%v", m.Number, m.CKNumber),
 			DocDate:   dt.Format("2006-01-02 15:04:05"),
 			Card:      strings.Trim(m.CardNumber, " "),
-			DocSum:    m.Sum,
-			BonuceSum: m.Sum,
+			DocSum:    m.Sum * k,
+			BonuceSum: m.Sum * k,
 		}
 		buff, err := json.Marshal(endpoint.AddActivityRequest{Activity: a})
 		if err != nil {
