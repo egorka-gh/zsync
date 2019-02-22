@@ -16,6 +16,10 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 	defer func() {
 		c.logger.Log("method", "Sync", "e1", e1)
 	}()
+	if ctx.Err() != nil {
+		//context canceled
+		return ctx.Err()
+	}
 	c.logger.Log("method", "Sync", "operation", "start", "source", "00", "url", c.masterURL)
 
 	if c.masterURL == "" {
@@ -48,54 +52,14 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 	loaded := make(chan pack, tablesNum)
 
 	client := grab.NewClient()
-	/*
-		load := func(in <-chan pack, out chan<- pack) {
-			select {
-			case <-ctx.Done():
-				//context canceled
-				return
-			case p, ok := <-in:
-				if !ok {
-					//chan closed
-					return
-				}
-				//create request
-				req, err := grab.NewRequest(c.db.ExchangeFolder(), p.URL+c.packURL+"/"+p.Pack.Pack)
-				if err != nil {
-					p.Err = err
-				} else {
-					req.Size = p.Pack.PackSize
-					b, err := hex.DecodeString(p.Pack.PackMD5)
-					if err != nil {
-						p.Err = err
-					} else {
-						req.SetChecksum(md5.New(), b, true)
-						//cancelabel
-						req = req.WithContext(ctx)
-						//load
-						resp := client.Do(req)
-						//respch <- resp
-						//waite complite
-						//<-resp.Done
-						p.Err = resp.Err()
-						//check if context canceled
-						if ctx.Err() != nil && (ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded) {
-							return
-						}
-					}
-				}
-				//sent result
-				out <- p
-			}
-		}
-	*/
+
 	// start 5 loaders
 	wgl := sync.WaitGroup{}
 	for i := 0; i < 5; i++ {
 		wgl.Add(1)
 		go func() {
 			//load(pulled, loaded)
-			c.loadSyncPack(ctx, client, pulled, loaded)
+			c.syncPackloader(ctx, client, pulled, loaded)
 			wgl.Done()
 		}()
 	}

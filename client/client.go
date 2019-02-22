@@ -67,60 +67,47 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 		c.logger.Log("method", "PullSyncPacks", "source", source, "url", url, "e1", e1)
 	}()
 
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	//get remote versions
 	vr, e1 := svc.ListVersion(ctx, c.id)
 	if e1 != nil {
 		return e1
 	}
-
 	if len(vr) == 0 {
 		//empty response or transport error
 		return errors.New("Empty response")
 	}
-
 	//load lockal versions
 	vl, e1 := c.db.ListVersion(ctx, source)
 	if e1 != nil {
 		return e1
 	}
 
-	//compare versions
+	//compare versions and do requests in serial
 	for _, v0 := range vr {
-		//c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "remote_version", v0.Version)
 		for _, v1 := range vl {
 			if v0.Source == v1.Source && v0.Table == v1.Table && v0.Version > v1.Version {
-				c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "remote_version", v0.Version, "lockal_version", v1.Version)
-				//TODO not closed chan
-				ch := make(chan pack, 1)
-				//serial
-				//TODO parallel goroutines?
+				//check context canceled
+				if ctx.Err() != nil {
+					return ctx.Err()
+				}
+				c.logger.Log("method", "PullSyncPacks", "source", source, "table", v0.Table, "remote_version", v0.Version, "lockal_version", v1.Version)
 				//pull pack from remote
-				go func(v service.Version) {
-					vp, err := svc.PullPack(ctx, c.id, v.Table, v.Version)
-					c.logger.Log("method", "PullSyncPacks", "table", v0.Table, "pack", vp.Pack, "start", vp.Start, "end", vp.End)
-					ch <- pack{Pack: vp, URL: url, Err: err, Svc: svc}
-				}(v1)
-				//waite for responce or ctx cancel
-				select {
-				case <-ctx.Done():
-					<-ch // Wait for client
-					//fmt.Println("Cancel the context")
-					e1 = ctx.Err()
-					return e1
-				case data := <-ch:
-					if data.Err != nil {
-						c.logger.Log("method", "PullSyncPacks", "source", data.Pack.Source, "url", url, "table", data.Pack.Table, "e1", data.Err)
-						if e1 == nil {
-							e1 = data.Err
-						}
-					} else {
-						//check if has sync data
-						if data.Pack.Pack != "" {
-							out <- data
-						}
+				vp, err := svc.PullPack(ctx, c.id, v1.Table, v1.Version)
+				c.logger.Log("method", "PullSyncPacks", "source", source, "table", v0.Table, "pack", vp.Pack, "start", vp.Start, "end", vp.End, "err", err)
+				//check if no errors and has sync data
+				if err == nil {
+					if vp.Pack != "" {
+						out <- pack{Pack: vp, URL: url, Err: err, Svc: svc}
+					}
+				} else {
+					//fix first err
+					if e1 == nil {
+						e1 = err
 					}
 				}
-				close(ch)
 			}
 		}
 	}
@@ -128,41 +115,37 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 }
 
 //loadSyncPack pack download worker
-func (c *Client) loadSyncPack(ctx context.Context, client *grab.Client, in <-chan pack, out chan<- pack) {
-	select {
-	case <-ctx.Done():
-		//context canceled
-		return
-	case p, ok := <-in:
-		if !ok {
-			//chan closed
-			return
+func (c *Client) syncPackloader(ctx context.Context, client *grab.Client, in <-chan pack, out chan<- pack) {
+	for p := range in {
+		//check if contex canceled
+		if ctx.Err() != nil {
+			p.Err = ctx.Err()
+			out <- p
+			continue
 		}
 		//create request
 		req, err := grab.NewRequest(c.db.ExchangeFolder(), p.URL+http.PackPattern+p.Pack.Pack)
 		if err != nil {
 			p.Err = err
-		} else {
-			req.Size = p.Pack.PackSize
-			b, err := hex.DecodeString(p.Pack.PackMD5)
-			if err != nil {
-				p.Err = err
-			} else {
-				req.SetChecksum(md5.New(), b, true)
-				//cancelabel
-				req = req.WithContext(ctx)
-				//load
-				resp := client.Do(req)
-				//respch <- resp
-				//waite complite
-				//<-resp.Done
-				p.Err = resp.Err()
-				//check if context canceled
-				if ctx.Err() != nil && (ctx.Err() == context.Canceled || ctx.Err() == context.DeadlineExceeded) {
-					return
-				}
-			}
+			out <- p
+			continue
 		}
+		req.Size = p.Pack.PackSize
+		b, err := hex.DecodeString(p.Pack.PackMD5)
+		if err != nil {
+			p.Err = err
+			out <- p
+			continue
+		}
+		req.SetChecksum(md5.New(), b, true)
+		//cancelabel
+		req = req.WithContext(ctx)
+		//load
+		resp := client.Do(req)
+		//respch <- resp
+		//waite complite
+		<-resp.Done
+		p.Err = resp.Err()
 		//sent result
 		out <- p
 	}

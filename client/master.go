@@ -16,9 +16,11 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	defer func() {
 		c.logger.Log("method", "Sync", "e1", e1)
 	}()
+	if ctx.Err() != nil {
+		//context canceled
+		return ctx.Err()
+	}
 
-	//TODO get versioned tables count from db
-	const tablesNum int = 1
 	src, e1 := c.db.ListSource(ctx, c.id)
 	if e1 != nil {
 		return e1
@@ -26,10 +28,51 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 
 	wg := sync.WaitGroup{}
 
-	//pull version packs from each source
+	//TODO get versioned tables count from db
+	const tablesNum int = 1
+	//pulled packs chan
 	pulled := make(chan pack, tablesNum*len(src))
-	wg.Add(1)
+	//downloaded packs chan
+	loaded := make(chan pack, tablesNum)
 
+	//start database worker
+	wg.Add(1)
+	go func() {
+		for p := range loaded {
+			if p.Err != nil {
+				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "e1", p.Err)
+			} else {
+				//exec in db
+				p.Err = c.db.ExecPack(ctx, p.Pack)
+				if p.Err != nil {
+					c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
+				}
+			}
+			if p.Svc != nil {
+				//notify server can remove pack
+				//don't care rusult
+				_ = p.Svc.PackDone(ctx, p.Pack)
+			}
+		}
+		wg.Done()
+	}()
+
+	//start loaders
+	wg.Add(1)
+	client := grab.NewClient()
+	// start 5 loaders
+	wgl := sync.WaitGroup{}
+	for i := 0; i < 5; i++ {
+		wgl.Add(1)
+		go func() {
+			c.syncPackloader(ctx, client, pulled, loaded)
+			wgl.Done()
+		}()
+	}
+
+	//start pull workers
+	wg.Add(1)
+	//pull version packs from each source
 	wgs := sync.WaitGroup{}
 	//TODO limit workers?
 	for _, s := range src {
@@ -50,51 +93,18 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	//waite pull workers
 	go func() {
 		wgs.Wait()
-		wg.Done()
 		close(pulled)
+		wg.Done()
 	}()
-
-	//download packs
-	loaded := make(chan pack, tablesNum)
-
-	client := grab.NewClient()
-	// start 5 loaders
-	wgl := sync.WaitGroup{}
-	for i := 0; i < 5; i++ {
-		wgl.Add(1)
-		go func() {
-			c.loadSyncPack(ctx, client, pulled, loaded)
-			wgl.Done()
-		}()
-	}
 
 	//waite all downloads complete & close loaded chan
 	go func() {
 		wgl.Wait()
 		close(loaded)
-	}()
-
-	//exec in db
-	wg.Add(1)
-	go func() {
-		for p := range loaded {
-			if p.Err != nil {
-				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "e1", p.Err)
-			} else {
-				p.Err = c.db.ExecPack(ctx, p.Pack)
-				if p.Err != nil {
-					c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
-				}
-			}
-			if p.Svc != nil {
-				//notify server can remove pack
-				//don't care rusult
-				_ = p.Svc.PackDone(ctx, p.Pack)
-			}
-		}
 		wg.Done()
 	}()
 
+	//waite database worker
 	wg.Wait()
 	return e1
 }
