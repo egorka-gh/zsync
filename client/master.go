@@ -4,8 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/cavaliercoder/grab"
-
 	"github.com/egorka-gh/zbazar/zsync/client/http"
 	http1 "github.com/egorka-gh/zbazar/zsync/pkg/http"
 	"github.com/egorka-gh/zbazar/zsync/pkg/service"
@@ -44,9 +42,7 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 			} else {
 				//exec in db
 				p.Err = c.db.ExecPack(ctx, p.Pack)
-				if p.Err != nil {
-					c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
-				}
+				c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
 			}
 			if p.Svc != nil {
 				//notify server can remove pack
@@ -59,13 +55,12 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 
 	//start loaders
 	wg.Add(1)
-	client := grab.NewClient()
 	// start 5 loaders
 	wgl := sync.WaitGroup{}
 	for i := 0; i < 5; i++ {
 		wgl.Add(1)
 		go func() {
-			c.syncPackloader(ctx, client, pulled, loaded)
+			c.syncPackloader(ctx, pulled, loaded)
 			wgl.Done()
 		}()
 	}

@@ -5,8 +5,6 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/cavaliercoder/grab"
-
 	"github.com/egorka-gh/zbazar/zsync/client/http"
 	http1 "github.com/egorka-gh/zbazar/zsync/pkg/http"
 )
@@ -51,15 +49,13 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 	//download packs
 	loaded := make(chan pack, tablesNum)
 
-	client := grab.NewClient()
-
 	// start 5 loaders
 	wgl := sync.WaitGroup{}
 	for i := 0; i < 5; i++ {
 		wgl.Add(1)
 		go func() {
 			//load(pulled, loaded)
-			c.syncPackloader(ctx, client, pulled, loaded)
+			c.syncPackloader(ctx, pulled, loaded)
 			wgl.Done()
 		}()
 	}
@@ -78,9 +74,7 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "e1", p.Err)
 			} else {
 				p.Err = c.db.ExecPack(ctx, p.Pack)
-				if p.Err != nil {
-					c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
-				}
+				c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
 			}
 			//notify server can remove pack
 			//don't care rusult

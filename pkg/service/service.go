@@ -30,10 +30,10 @@ type basicZsyncService struct {
 func (b *basicZsyncService) fileInfo(fileName string) (size int64, md5Str string, err error) {
 	var path = b.exchangeFolder + fileName
 	file, err := os.Open(path)
-	defer file.Close()
 	if err != nil {
 		return 0, "", err
 	}
+	defer file.Close()
 	fi, err := file.Stat()
 	if err != nil {
 		return 0, "", err

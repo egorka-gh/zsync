@@ -1,13 +1,19 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"io"
+	http0 "net/http"
+	"os"
 	"time"
 
-	"github.com/cavaliercoder/grab"
+	"github.com/hashicorp/go-cleanhttp"
+
 	"github.com/go-kit/kit/log"
 
 	"github.com/egorka-gh/zbazar/zsync/pkg/http"
@@ -115,7 +121,7 @@ func (c *Client) pullSyncPacks(ctx context.Context, svc service.ZsyncService, so
 }
 
 //loadSyncPack pack download worker
-func (c *Client) syncPackloader(ctx context.Context, client *grab.Client, in <-chan pack, out chan<- pack) {
+func (c *Client) syncPackloader(ctx context.Context, in <-chan pack, out chan<- pack) {
 	for p := range in {
 		//check if contex canceled
 		if ctx.Err() != nil {
@@ -123,32 +129,118 @@ func (c *Client) syncPackloader(ctx context.Context, client *grab.Client, in <-c
 			out <- p
 			continue
 		}
-		//create request
-		req, err := grab.NewRequest(c.db.ExchangeFolder(), p.URL+http.PackPattern+p.Pack.Pack)
-		if err != nil {
-			p.Err = err
+
+		p.Err = c.downloadPack(ctx, p.URL, p.Pack.Pack)
+		if p.Err != nil {
 			out <- p
 			continue
 		}
-		req.Size = p.Pack.PackSize
-		b, err := hex.DecodeString(p.Pack.PackMD5)
-		if err != nil {
-			p.Err = err
-			out <- p
-			continue
-		}
-		req.SetChecksum(md5.New(), b, true)
-		//cancelabel
-		req = req.WithContext(ctx)
-		//load
-		resp := client.Do(req)
-		//respch <- resp
-		//waite complite
-		<-resp.Done
-		p.Err = resp.Err()
-		//sent result
+		//TODO check ctx canceled?
+		p.Err = c.checkPack(p.Pack.PackSize, p.Pack.PackMD5, p.Pack.Pack)
 		out <- p
+
+		/*
+			//create request
+			req, err := grab.NewRequest(c.db.ExchangeFolder(), p.URL+http.PackPattern+p.Pack.Pack)
+			if err != nil {
+				p.Err = err
+				out <- p
+				continue
+			}
+			req.Size = p.Pack.PackSize
+			b, err := hex.DecodeString(p.Pack.PackMD5)
+			if err != nil {
+				p.Err = err
+				out <- p
+				continue
+			}
+			req.SetChecksum(md5.New(), b, true)
+			//cancelabel
+			req = req.WithContext(ctx)
+			//load
+			resp := client.Do(req)
+			//respch <- resp
+			//waite complite
+			<-resp.Done
+			p.Err = resp.Err()
+
+			//sent result
+			out <- p
+		*/
 	}
+}
+
+//TODO implement as service method
+func (c *Client) downloadPack(ctx context.Context, baseURL, fileName string) error {
+
+	if fileName == "" {
+		return errors.New("empty file name")
+	}
+
+	// Create the file
+	path := c.db.ExchangeFolder() + fileName
+	out, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	url := baseURL + http.PackPattern + fileName
+	cli := defaultHttpClient()
+
+	req, err := http0.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req = req.WithContext(ctx)
+
+	resp, err := cli.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		resp.Body.Close()
+		return fmt.Errorf("bad response code: %d", resp.StatusCode)
+	}
+	defer resp.Body.Close()
+
+	// Write the body to file
+	_, err = io.Copy(out, resp.Body)
+	return err
+}
+
+//TODO context cancel??
+func (c *Client) checkPack(fileSize int64, fileHash, fileName string) error {
+	//check size && hash
+	path := c.db.ExchangeFolder() + fileName
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	fi, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	if fileSize != fi.Size() {
+		return errors.New("file size mismatch")
+	}
+
+	hash := md5.New()
+	_, err = io.Copy(hash, file)
+	if err != nil {
+		return err
+	}
+	hashBytes := hash.Sum(nil)[:16]
+	//TODO do it before download
+	hashExpect, err := hex.DecodeString(fileHash)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(hashExpect, hashBytes) {
+		return errors.New("checksum mismatch")
+	}
+	return nil
 }
 
 //FixVersions updates versions in db
@@ -193,14 +285,22 @@ func (c *Client) CalcLevels(ctx context.Context) (e0 error) {
 	return c.db.CalcLevels(ctx, firstOfMonth)
 }
 
+//creates transient client, can be pooled?
+func defaultHttpClient() *http0.Client {
+	cli := cleanhttp.DefaultClient()
+	cli.Timeout = time.Minute * 3
+	return cli
+}
+
 func defaultHttpOptions(logger log.Logger) map[string][]http1.ClientOption {
+	cli := defaultHttpClient()
 	options := map[string][]http1.ClientOption{
-		"AddActivity": {clientFinalizer("AddActivity", logger)},
-		"GetLevel":    {clientFinalizer("GetLevel", logger)},
-		"ListVersion": {clientFinalizer("ListVersion", logger)},
-		"PackDone":    {clientFinalizer("PackDone", logger)},
-		"PullPack":    {clientFinalizer("PullPack", logger)},
-		"PushPack":    {clientFinalizer("PushPack", logger)},
+		"AddActivity": {http1.SetClient(cli), clientFinalizer("AddActivity", logger)},
+		"GetLevel":    {http1.SetClient(cli), clientFinalizer("GetLevel", logger)},
+		"ListVersion": {http1.SetClient(cli), clientFinalizer("ListVersion", logger)},
+		"PackDone":    {http1.SetClient(cli), clientFinalizer("PackDone", logger)},
+		"PullPack":    {http1.SetClient(cli), clientFinalizer("PullPack", logger)},
+		"PushPack":    {http1.SetClient(cli), clientFinalizer("PushPack", logger)},
 	}
 	return options
 }
