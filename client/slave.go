@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/egorka-gh/zbazar/zsync/client/http"
@@ -34,9 +35,40 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 	const tablesNum int = 10
 	wg := sync.WaitGroup{}
 
-	//pull version packs
+	//pulled packs chan
 	pulled := make(chan pack, tablesNum)
-	//pullwg := sync.WaitGroup
+	//downloaded packs chan
+	loaded := make(chan pack, tablesNum)
+
+	//start database worker
+	wg.Add(1)
+	go func() {
+		for p := range loaded {
+			if p.Err != nil {
+				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
+			} else {
+				p.Err = c.db.ExecPack(ctx, p.Pack)
+				c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
+			}
+			//notify server can remove pack
+			//don't care rusult
+			_ = svc.PackDone(ctx, p.Pack)
+		}
+		wg.Done()
+	}()
+
+	//start 5 loaders
+	wg.Add(1)
+	wgl := sync.WaitGroup{}
+	for i := 0; i < 5; i++ {
+		wgl.Add(1)
+		go func() {
+			c.syncPackloader(ctx, pulled, loaded)
+			wgl.Done()
+		}()
+	}
+
+	//start pull worker
 	wg.Add(1)
 	go func() {
 		defer func() {
@@ -46,40 +78,10 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 		_ = c.pullSyncPacks(ctx, svc, "00", c.masterURL, pulled)
 	}()
 
-	//download packs
-	loaded := make(chan pack, tablesNum)
-
-	// start 5 loaders
-	wgl := sync.WaitGroup{}
-	for i := 0; i < 5; i++ {
-		wgl.Add(1)
-		go func() {
-			//load(pulled, loaded)
-			c.syncPackloader(ctx, pulled, loaded)
-			wgl.Done()
-		}()
-	}
-
 	//waite all downloads complete & close loaded chan
 	go func() {
 		wgl.Wait()
 		close(loaded)
-	}()
-
-	//exec in db
-	wg.Add(1)
-	go func() {
-		for p := range loaded {
-			if p.Err != nil {
-				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "e1", p.Err)
-			} else {
-				p.Err = c.db.ExecPack(ctx, p.Pack)
-				c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
-			}
-			//notify server can remove pack
-			//don't care rusult
-			_ = svc.PackDone(ctx, p.Pack)
-		}
 		wg.Done()
 	}()
 

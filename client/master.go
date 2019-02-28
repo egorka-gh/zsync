@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/egorka-gh/zbazar/zsync/client/http"
@@ -38,11 +39,11 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	go func() {
 		for p := range loaded {
 			if p.Err != nil {
-				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "e1", p.Err)
+				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
 			} else {
 				//exec in db
 				p.Err = c.db.ExecPack(ctx, p.Pack)
-				c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "e1", p.Err)
+				c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
 			}
 			if p.Svc != nil {
 				//notify server can remove pack
@@ -53,9 +54,8 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 		wg.Done()
 	}()
 
-	//start loaders
+	//start 5 loaders
 	wg.Add(1)
-	// start 5 loaders
 	wgl := sync.WaitGroup{}
 	for i := 0; i < 5; i++ {
 		wgl.Add(1)

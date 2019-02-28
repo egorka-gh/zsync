@@ -138,35 +138,6 @@ func (c *Client) syncPackloader(ctx context.Context, in <-chan pack, out chan<- 
 		//TODO check ctx canceled?
 		p.Err = c.checkPack(p.Pack.PackSize, p.Pack.PackMD5, p.Pack.Pack)
 		out <- p
-
-		/*
-			//create request
-			req, err := grab.NewRequest(c.db.ExchangeFolder(), p.URL+http.PackPattern+p.Pack.Pack)
-			if err != nil {
-				p.Err = err
-				out <- p
-				continue
-			}
-			req.Size = p.Pack.PackSize
-			b, err := hex.DecodeString(p.Pack.PackMD5)
-			if err != nil {
-				p.Err = err
-				out <- p
-				continue
-			}
-			req.SetChecksum(md5.New(), b, true)
-			//cancelabel
-			req = req.WithContext(ctx)
-			//load
-			resp := client.Do(req)
-			//respch <- resp
-			//waite complite
-			<-resp.Done
-			p.Err = resp.Err()
-
-			//sent result
-			out <- p
-		*/
 	}
 }
 
