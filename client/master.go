@@ -39,11 +39,11 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	go func() {
 		for p := range loaded {
 			if p.Err != nil {
-				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
+				c.logger.Log("Sync", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
 			} else {
 				//exec in db
 				p.Err = c.db.ExecPack(ctx, p.Pack)
-				c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
+				c.logger.Log("Sync", "exec", "pack", p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
 			}
 			if p.Svc != nil {
 				//notify server can remove pack
@@ -72,10 +72,10 @@ func (c *Client) syncMaster(ctx context.Context) (e1 error) {
 	//TODO limit workers?
 	for _, s := range src {
 		//start pull worker for source
-		c.logger.Log("method", "Sync", "operation", "start", "source", s.ID, "url", s.URL)
+		c.logger.Log("Sync", "start_pull", "source", s.ID, "url", s.URL)
 		svc, err := http.New(s.URL, defaultHttpOptions(c.logger))
 		if e1 != nil {
-			c.logger.Log("method", "Sync", "operation", "start", "source", s.ID, "url", s.URL, "e1", err)
+			c.logger.Log("Sync", "start_pull", "source", s.ID, "url", s.URL, "e1", err)
 		} else {
 			wgs.Add(1)
 			go func(s service.Source, svc service.ZsyncService) {

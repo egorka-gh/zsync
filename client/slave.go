@@ -19,7 +19,7 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 		//context canceled
 		return ctx.Err()
 	}
-	c.logger.Log("method", "Sync", "operation", "start", "source", "00", "url", c.masterURL)
+	c.logger.Log("Sync", "start_pull", "source", "00", "url", c.masterURL)
 
 	if c.masterURL == "" {
 		e1 = errors.New("Empty master URL")
@@ -45,10 +45,10 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 	go func() {
 		for p := range loaded {
 			if p.Err != nil {
-				c.logger.Log("method", "Sync", "operation", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
+				c.logger.Log("Sync", "load", "url", p.URL+http1.PackPattern+p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
 			} else {
 				p.Err = c.db.ExecPack(ctx, p.Pack)
-				c.logger.Log("method", "Sync", "operation", "exec", "pack", p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
+				c.logger.Log("Sync", "exec", "pack", p.Pack.Pack, "size_kb", fmt.Sprintf("%.2f", float32(p.Pack.PackSize)/1024), "e1", p.Err)
 			}
 			//notify server can remove pack
 			//don't care rusult

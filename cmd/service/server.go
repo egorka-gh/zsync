@@ -228,8 +228,8 @@ func initLoger(logPath string) log.Logger {
 		logger = log.NewLogfmtLogger(&lumberjack.Logger{
 			Filename:   path,
 			MaxSize:    5, // megabytes
-			MaxBackups: 3,
-			MaxAge:     10, //days
+			MaxBackups: 5,
+			MaxAge:     60, //days
 		})
 	}
 	logger = log.With(logger, "ts", log.DefaultTimestamp) // .DefaultTimestampUTC)
