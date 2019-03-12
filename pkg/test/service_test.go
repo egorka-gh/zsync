@@ -221,6 +221,7 @@ func TestAddActivity(t *testing.T) {
 
 	var a = service.Activity{
 		Doc:       dt.Format(time.RFC3339),
+		DocNum:    "docNum",
 		Card:      "100006",
 		DocDate:   dt.Format("2006-01-02 15:04:05"),
 		DocSum:    101.0,

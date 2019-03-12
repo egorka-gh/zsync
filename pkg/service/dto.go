@@ -33,6 +33,7 @@ type VersionPack struct {
 type Activity struct {
 	Source    string  `json:"source,omitempty" db:"source"`
 	Doc       string  `json:"doc_id" db:"doc_id"`
+	DocNum    string  `json:"doc_num" db:"doc_num"`
 	Card      string  `json:"card" db:"card"`
 	DocDate   string  `json:"doc_date" db:"doc_date"` //format YYYY-MM-DD hh:mm:ss
 	DocSum    float32 `json:"doc_sum" db:"doc_sum"`
