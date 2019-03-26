@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	http1 "net/http"
@@ -38,8 +39,8 @@ import (
 var tracer opentracinggo.Tracer
 var logger log.Logger
 
-//RunServer strat service & client
-func RunServer() {
+//InitServerGroup creates server run group, vs out CancelInterrupt runner
+func InitServerGroup() (*group.Group, service.Repository, error) {
 	viper.SetDefault("http-addr", ":8081")  //HTTP listen addres
 	viper.SetDefault("debug-addr", ":8080") //Debug and metrics listen address
 	viper.SetDefault("mysql", "")           //MySQL connection string
@@ -79,20 +80,16 @@ func RunServer() {
 	var masterURL = viper.GetString("master-url")
 
 	if instanseID == "" {
-		logger.Log("Error", "Instanse ID not set")
-		return
+		return nil, nil, errors.New("Instanse ID not set")
 	}
 	if instanseID != "00" && masterURL == "" {
-		logger.Log("Error", "Master server url not set")
-		return
+		return nil, nil, errors.New("Master server url not set")
 	}
 	if mysqlCnn == "" {
-		logger.Log("Error", "MySQL connection string not set")
-		return
+		return nil, nil, errors.New("MySQL connection string not set")
 	}
 	if exchangeFolder == "" {
-		logger.Log("Error", "MySQL exchange folder not set")
-		return
+		return nil, nil, errors.New("MySQL exchange folder not set")
 	}
 
 	logger.Log("InstanseID", instanseID)
@@ -108,9 +105,9 @@ func RunServer() {
 	rep, err = repo.New(mysqlCnn, exchangeFolder)
 	if err != nil {
 		logger.Log("Repository", "Connect", "err", err)
-		return
+		return nil, nil, err
 	}
-	defer rep.Close()
+	//defer rep.Close()
 
 	//create client
 	var cli *client.Client
@@ -131,6 +128,19 @@ func RunServer() {
 	g := createService(eps)
 	initClientScheduler(g, cli)
 	initMetricsEndpoint(g)
+	return g, rep, nil
+}
+
+//RunServer strat service & client vs os cli (listen os Signal CancelInterrupt)
+func RunServer() {
+	g, rep, err := InitServerGroup()
+	if err != nil {
+		if logger != nil {
+			logger.Log("Error", err)
+		}
+		return
+	}
+	defer rep.Close()
 	initCancelInterrupt(g)
 	logger.Log("exit", g.Run())
 }
