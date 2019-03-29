@@ -77,7 +77,7 @@ func (p *program) Start(s service1.Service) error {
 		logger.Info("Running in terminal.")
 		logger.Infof("Valid startup parametrs: %q\n", service1.ControlAction)
 	} else {
-		logger.Info("Starting service...")
+		logger.Info("Starting Zsync service...")
 	}
 	// Start should not block. Do the actual work async.
 	go p.run()
@@ -86,13 +86,13 @@ func (p *program) Start(s service1.Service) error {
 
 func (p *program) Stop(s service1.Service) error {
 	// Stop should not block. Return with a few seconds.
-	logger.Info("Service Stopping!")
+	logger.Info("Zsync Stopping!")
 	//interrupt service
 	close(p.interrupt)
 	//<-time.After(time.Second * 13)
 	//waite service stops
 	<-p.quit
-	logger.Info("Service stopped")
+	logger.Info("Zsync stopped")
 	return nil
 }
 
@@ -112,6 +112,7 @@ func (p *program) run() {
 		}, func(error) {
 			close(running)
 		})
+	logger.Info("Zsync started")
 	logger.Info(p.group.Run())
 	close(p.quit)
 }
