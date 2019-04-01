@@ -222,6 +222,14 @@ func (c *Client) FixVersions(ctx context.Context) (e0 error) {
 	return c.db.FixVersions(ctx, c.id)
 }
 
+//CleanUp - delete not relevant data (old balance etc)
+func (c *Client) CleanUp(ctx context.Context) (e0 error) {
+	defer func() {
+		c.logger.Log("method", "CleanUp", "error", e0)
+	}()
+	return c.db.CleanUp(ctx)
+}
+
 //CalcBalance recalcs balance from first day of month
 func (c *Client) CalcBalance(ctx context.Context) (e0 error) {
 	//get first day of month

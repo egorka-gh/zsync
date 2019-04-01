@@ -284,6 +284,10 @@ func initClientScheduler(g *group.Group, cli *client.Client) {
 		for _, d := range levelDays {
 			scheduler.AddMonthly(d, levelHour, cli.CalcLevels)
 		}
+	} else {
+		for _, d := range levelDays {
+			scheduler.AddMonthly(d, levelHour, cli.CleanUp)
+		}
 	}
 	scheduler.AddPeriodic(time.Duration(interval)*time.Minute, cli.FixVersions)
 

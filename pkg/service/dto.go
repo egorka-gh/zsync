@@ -50,6 +50,7 @@ type Repository interface {
 	CalcLevels(ctx context.Context, balanceDate time.Time) error
 	CalcBalance(ctx context.Context, fromDate time.Time) error
 	FixVersions(ctx context.Context, source string) error
+	CleanUp(ctx context.Context) error
 	//cash
 	AddActivity(ctx context.Context, activity Activity) error
 	GetLevel(ctx context.Context, card string) (int, error)

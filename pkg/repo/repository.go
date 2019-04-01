@@ -125,6 +125,11 @@ func (b *basicRepository) FixVersions(ctx context.Context, source string) error 
 	return err
 }
 
+func (b *basicRepository) CleanUp(ctx context.Context) error {
+	_, err := b.db.ExecContext(ctx, "CALL clean_up()")
+	return err
+}
+
 func (b *basicRepository) AddActivity(ctx context.Context, activity service.Activity) error {
 	var sql = "INSERT INTO client_activity (source, doc_id, doc_num, card, doc_date, doc_sum, bonuce_sum) VALUES (?, ?, ?, ?, ?, ?, ?)"
 	_, err := b.db.ExecContext(ctx, sql, activity.Source, activity.Doc, activity.DocNum, activity.Card, activity.DocDate, activity.DocSum, activity.BonuceSum)
