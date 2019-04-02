@@ -39,8 +39,8 @@ import (
 var tracer opentracinggo.Tracer
 var logger log.Logger
 
-//InitServerGroup creates server run group, vs out CancelInterrupt runner
-func InitServerGroup() (*group.Group, service.Repository, error) {
+//ReadConfig init/read viper config
+func ReadConfig() error {
 	viper.SetDefault("http-addr", ":8081")  //HTTP listen addres
 	viper.SetDefault("debug-addr", ":8080") //Debug and metrics listen address
 	viper.SetDefault("mysql", "")           //MySQL connection string
@@ -60,13 +60,17 @@ func InitServerGroup() (*group.Group, service.Repository, error) {
 	//fmt.Println("Path ", path)
 	viper.AddConfigPath(path)
 	viper.SetConfigName("config")
-	err = viper.ReadInConfig()
+	return viper.ReadInConfig()
 	/*
 		if err != nil {
 			logger.Info(err)
 			logger.Info("Start using default setings")
 		}
 	*/
+}
+
+//InitServerGroup creates server run group, vs out CancelInterrupt runner
+func InitServerGroup() (*group.Group, service.Repository, error) {
 
 	// Create a single logger, which we'll use and give to other components.
 	logger = initLoger(viper.GetString("log"))
@@ -102,7 +106,7 @@ func InitServerGroup() (*group.Group, service.Repository, error) {
 	tracer = opentracinggo.GlobalTracer()
 
 	var rep service.Repository
-	rep, err = repo.New(mysqlCnn, exchangeFolder)
+	rep, err := repo.New(mysqlCnn, exchangeFolder)
 	if err != nil {
 		logger.Log("Repository", "Connect", "err", err)
 		return nil, nil, err

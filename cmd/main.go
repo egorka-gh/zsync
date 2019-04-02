@@ -10,6 +10,7 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	service1 "github.com/kardianos/service"
 	group "github.com/oklog/oklog/pkg/group"
+	"github.com/spf13/viper"
 )
 
 /*
@@ -32,9 +33,16 @@ type program struct {
 }
 
 func main() {
+	err := service.ReadConfig()
+	if err != nil {
+		log.Fatal(err)
+		return
+	}
+
+	var instanseID = viper.GetString("id")
 	svcConfig := &service1.Config{
-		Name:        "ZooSyncServer",
-		DisplayName: "Zoo Sync Server",
+		Name:        "ZSyncServer_" + instanseID,
+		DisplayName: "ZSync Server id:" + instanseID,
 		Description: "Zoobazar Sync service",
 	}
 	prg := &program{}
