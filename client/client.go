@@ -25,12 +25,12 @@ import (
 type Client struct {
 	db        service.Repository
 	id        string
-	masterURL string
+	mainURL string
 	logger    log.Logger
 }
 
-//NewMaster creates client
-func NewMaster(rep service.Repository, id string, logger log.Logger) *Client {
+//NewMain creates client
+func NewMain(rep service.Repository, id string, logger log.Logger) *Client {
 	cliLog := log.With(logger, "thread", "client")
 	return &Client{
 		db:     rep,
@@ -39,14 +39,14 @@ func NewMaster(rep service.Repository, id string, logger log.Logger) *Client {
 	}
 }
 
-//NewSlave creates client
-func NewSlave(rep service.Repository, id, masterURL string, logger log.Logger) *Client {
+//NewSubordinate creates client
+func NewSubordinate(rep service.Repository, id, mainURL string, logger log.Logger) *Client {
 	cliLog := log.With(logger, "thread", "client")
 	return &Client{
 		db:        rep,
 		id:        id,
 		logger:    cliLog,
-		masterURL: masterURL,
+		mainURL: mainURL,
 	}
 }
 
@@ -61,9 +61,9 @@ type pack struct {
 //Sync perfoms synchronization
 func (c *Client) Sync(ctx context.Context) (e1 error) {
 	if c.id == "00" {
-		return c.syncMaster(ctx)
+		return c.syncMain(ctx)
 	}
-	return c.syncSlave(ctx)
+	return c.syncSubordinate(ctx)
 }
 
 //TODO recheck source usage

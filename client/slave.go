@@ -10,8 +10,8 @@ import (
 	http1 "github.com/egorka-gh/zbazar/zsync/pkg/http"
 )
 
-//sync Slave version
-func (c *Client) syncSlave(ctx context.Context) (e1 error) {
+//sync Subordinate version
+func (c *Client) syncSubordinate(ctx context.Context) (e1 error) {
 	defer func() {
 		c.logger.Log("method", "Sync", "e1", e1)
 	}()
@@ -19,14 +19,14 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 		//context canceled
 		return ctx.Err()
 	}
-	c.logger.Log("Sync", "start_pull", "source", "00", "url", c.masterURL)
+	c.logger.Log("Sync", "start_pull", "source", "00", "url", c.mainURL)
 
-	if c.masterURL == "" {
-		e1 = errors.New("Empty master URL")
+	if c.mainURL == "" {
+		e1 = errors.New("Empty main URL")
 		return e1
 	}
 
-	svc, e1 := http.New(c.masterURL, defaultHttpOptions(c.logger))
+	svc, e1 := http.New(c.mainURL, defaultHttpOptions(c.logger))
 	if e1 != nil {
 		return e1
 	}
@@ -75,7 +75,7 @@ func (c *Client) syncSlave(ctx context.Context) (e1 error) {
 			close(pulled)
 			wg.Done()
 		}()
-		_ = c.pullSyncPacks(ctx, svc, "00", c.masterURL, pulled)
+		_ = c.pullSyncPacks(ctx, svc, "00", c.mainURL, pulled)
 	}()
 
 	//waite all downloads complete & close loaded chan

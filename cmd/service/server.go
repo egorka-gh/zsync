@@ -47,7 +47,7 @@ func ReadConfig() error {
 	viper.SetDefault("folder", "")          //MySQL exchange folder
 	viper.SetDefault("log", "")             //Log folder
 	viper.SetDefault("id", "")              //Instanse ID
-	viper.SetDefault("master-url", "")      //master server url (need only for slave server)
+	viper.SetDefault("main-url", "")      //main server url (need only for subordinate server)
 	viper.SetDefault("sync-interval", "10") //sinc interval (minutes)
 	viper.SetDefault("balance-hour", "2")   //hour of daily balance recalculation
 	viper.SetDefault("level-days", "1,2")   //days of monthly level recalculation (comma sepparated)
@@ -81,13 +81,13 @@ func InitServerGroup() (*group.Group, service.Repository, error) {
 	var exchangeFolder = viper.GetString("folder")
 	//var logFolder = viper.GetString("log")
 	var instanseID = viper.GetString("id")
-	var masterURL = viper.GetString("master-url")
+	var mainURL = viper.GetString("main-url")
 
 	if instanseID == "" {
 		return nil, nil, errors.New("Instanse ID not set")
 	}
-	if instanseID != "00" && masterURL == "" {
-		return nil, nil, errors.New("Master server url not set")
+	if instanseID != "00" && mainURL == "" {
+		return nil, nil, errors.New("Main server url not set")
 	}
 	if mysqlCnn == "" {
 		return nil, nil, errors.New("MySQL connection string not set")
@@ -100,7 +100,7 @@ func InitServerGroup() (*group.Group, service.Repository, error) {
 	logger.Log("MySQLConnection", mysqlCnn)
 	logger.Log("ExchangeFolder", exchangeFolder)
 	if instanseID != "00" {
-		logger.Log("MasterURL", masterURL)
+		logger.Log("MainURL", mainURL)
 	}
 	logger.Log("tracer", "none")
 	tracer = opentracinggo.GlobalTracer()
@@ -116,11 +116,11 @@ func InitServerGroup() (*group.Group, service.Repository, error) {
 	//create client
 	var cli *client.Client
 	if instanseID != "00" {
-		//start slave
-		cli = client.NewSlave(rep, instanseID, masterURL, logger)
+		//start subordinate
+		cli = client.NewSubordinate(rep, instanseID, mainURL, logger)
 	} else {
-		//start master
-		cli = client.NewMaster(rep, instanseID, logger)
+		//start main
+		cli = client.NewMain(rep, instanseID, logger)
 	}
 
 	//create service
