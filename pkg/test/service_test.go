@@ -47,7 +47,7 @@ func initLoger(toFile bool) {
 
 }
 
-func TestMoveVersionMaster(t *testing.T) {
+func TestMoveVersionMain(t *testing.T) {
 	var exchFolder = "D:\\Buffer\\zexch"
 	initLoger(true)
 
@@ -69,7 +69,7 @@ func TestMoveVersionMaster(t *testing.T) {
 	t.Log(ver0)
 
 	//some db activity
-	err = updateMaster(mdb)
+	err = updateMain(mdb)
 	if err != nil {
 		t.Error(err)
 	}
@@ -97,12 +97,12 @@ func TestMoveVersionMaster(t *testing.T) {
 
 }
 
-func TestMoveVersionSlave(t *testing.T) {
+func TestMoveVersionSubordinate(t *testing.T) {
 	var exchFolder = "D:\\Buffer\\zexch"
 	initLoger(true)
 
 	var mrep service.Repository
-	mrep, mdb, err := NewDb("root:3411@tcp(127.0.0.1:3306)/zslave", exchFolder)
+	mrep, mdb, err := NewDb("root:3411@tcp(127.0.0.1:3306)/zsubordinate", exchFolder)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +119,7 @@ func TestMoveVersionSlave(t *testing.T) {
 	t.Log(ver0)
 
 	//some db activity
-	err = updateSlave(mdb)
+	err = updateSubordinate(mdb)
 	if err != nil {
 		t.Error(err)
 	}
@@ -207,7 +207,7 @@ func TestAddActivity(t *testing.T) {
 	initLoger(true)
 
 	var mrep service.Repository
-	mrep, mdb, err := NewDb("root:3411@tcp(127.0.0.1:3306)/zslave?parseTime=true", exchFolder)
+	mrep, mdb, err := NewDb("root:3411@tcp(127.0.0.1:3306)/zsubordinate?parseTime=true", exchFolder)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -33,7 +33,7 @@ func TestFixVersion(t *testing.T){
 }
 */
 
-func TestFixVersionMaster(t *testing.T) {
+func TestFixVersionMain(t *testing.T) {
 	//var mdb service.Repository
 	mrep, mdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch")
 	if err != nil {
@@ -97,26 +97,26 @@ func TestFixVersionMaster(t *testing.T) {
 
 }
 
-func TestSyncSlave(t *testing.T) {
+func TestSyncSubordinate(t *testing.T) {
 	mrep, mdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer mdb.Close()
-	srep, sdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/zslave", "D:\\Buffer\\zexch")
+	srep, sdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/zsubordinate", "D:\\Buffer\\zexch")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer sdb.Close()
 
-	//get table versions in slave
+	//get table versions in subordinate
 	ver0, err := srep.ListVersion(context.Background(), "00")
 	if err != nil {
 		t.Error(err)
 	}
 	t.Log(ver0)
 
-	//generate sync packs in master
+	//generate sync packs in main
 	packList := make([]service.VersionPack, 0, len(ver0))
 	for _, v0 := range ver0 {
 		var fileName = "00_" + v0.Table + "_" + strconv.FormatInt(int64(v0.Version), 10) + ".dat"
@@ -128,7 +128,7 @@ func TestSyncSlave(t *testing.T) {
 	}
 	t.Log(packList)
 
-	//apply packs in slave
+	//apply packs in subordinate
 	for _, p := range packList {
 		if p.Pack == "" {
 			t.Log("Version not changed or error in CreatePack", p)
@@ -139,7 +139,7 @@ func TestSyncSlave(t *testing.T) {
 		}
 	}
 
-	//check versions vs master
+	//check versions vs main
 	ver0, err = srep.ListVersion(context.Background(), "00")
 	if err != nil {
 		t.Error(err)
@@ -157,7 +157,7 @@ func TestSyncSlave(t *testing.T) {
 			if v0.Table == v.Table {
 				found = true
 				if v0.Version != v.Version {
-					t.Error(v0.Table, "Version not changed. Slave version ", v0.Version, ". Master version ", v.Version)
+					t.Error(v0.Table, "Version not changed. Subordinate version ", v0.Version, ". Main version ", v.Version)
 				}
 			}
 		}
@@ -168,9 +168,9 @@ func TestSyncSlave(t *testing.T) {
 
 }
 
-func TestFixVersionSlave(t *testing.T) {
+func TestFixVersionSubordinate(t *testing.T) {
 	//var mdb service.Repository
-	mrep, mdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/zslave", "D:\\Buffer\\zexch")
+	mrep, mdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/zsubordinate", "D:\\Buffer\\zexch")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -212,26 +212,26 @@ func TestFixVersionSlave(t *testing.T) {
 
 }
 
-func TestSyncMaster(t *testing.T) {
+func TestSyncMain(t *testing.T) {
 	mrep, mdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/pshdata", "D:\\Buffer\\zexch")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer mdb.Close()
-	srep, sdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/zslave", "D:\\Buffer\\zexch")
+	srep, sdb, err := newDb("root:3411@tcp(127.0.0.1:3306)/zsubordinate", "D:\\Buffer\\zexch")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer sdb.Close()
 
-	//get table versions in  master
+	//get table versions in  main
 	ver0, err := mrep.ListVersion(context.Background(), "zs")
 	if err != nil {
 		t.Error(err)
 	}
 	t.Log(ver0)
 
-	//generate sync packs in slave
+	//generate sync packs in subordinate
 	packList := make([]service.VersionPack, 0, len(ver0))
 	for _, v0 := range ver0 {
 		var fileName = "zs_" + v0.Table + "_" + strconv.FormatInt(int64(v0.Version), 10) + ".dat"
@@ -243,7 +243,7 @@ func TestSyncMaster(t *testing.T) {
 	}
 	t.Log(packList)
 
-	//apply packs in master
+	//apply packs in main
 	for _, p := range packList {
 		if p.Pack == "" {
 			t.Log("Version not changed or error in CreatePack", p)
@@ -254,7 +254,7 @@ func TestSyncMaster(t *testing.T) {
 		}
 	}
 
-	//check versions vs slave
+	//check versions vs subordinate
 	ver0, err = mrep.ListVersion(context.Background(), "zs")
 	if err != nil {
 		t.Error(err)
@@ -272,7 +272,7 @@ func TestSyncMaster(t *testing.T) {
 			if v0.Table == v.Table {
 				found = true
 				if v0.Version != v.Version {
-					t.Error(v0.Table, "Version not changed. Master version ", v0.Version, ". Slave version ", v.Version)
+					t.Error(v0.Table, "Version not changed. Main version ", v0.Version, ". Subordinate version ", v.Version)
 				}
 			}
 		}
